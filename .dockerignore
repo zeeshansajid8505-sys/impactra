@@ -1,0 +1,42 @@
+# Dependency directories (host node_modules must never enter container)
+node_modules
+**/node_modules
+
+# Build artifacts and caches
+.next
+**/.next
+.turbo
+**/.turbo
+dist
+**/dist
+build
+**/build
+coverage
+**/coverage
+*.tsbuildinfo
+
+# Git metadata
+.git
+.gitignore
+
+# IDE & OS files
+.vscode
+.idea
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Documentation & Markdown files (not needed for runtime build)
+docs
+**/*.md
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Gemini / agent artifacts
+C:\Users\Zeeshan Sajid\.gemini

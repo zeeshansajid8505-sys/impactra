@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <rect width="32" height="32" rx="7" fill="#18181b" />
+  <g transform="translate(4, 4)">
+    <!-- Core Change Node -->
+    <circle cx="7" cy="12" r="2.5" fill="#fafaf9" />
+    <!-- First Propagation Arc -->
+    <path
+      d="M12 6.5C14.5 8 16 10 16 12C16 14 14.5 16 12 17.5"
+      stroke="#fafaf9"
+      stroke-width="2"
+      stroke-linecap="round"
+    />
+    <!-- Outer Impact Horizon Arc -->
+    <path
+      d="M16.5 4C20 6.5 22 9.2 22 12C22 14.8 20 17.5 16.5 20"
+      stroke="#fafaf9"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-opacity="0.75"
+    />
+  </g>
+</svg>
+
