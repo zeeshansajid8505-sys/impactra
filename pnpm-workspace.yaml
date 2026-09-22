@@ -2,5 +2,14 @@ packages:
   - 'apps/*'
   - 'packages/*'
 
+overrides:
+  multer: '2.3.0'
+  deepmerge-ts: '8.0.0'
+
 allowBuilds:
   'unrs-resolver@1.12.2': true
+  '@prisma/client': true
+  'prisma': true
+  '@prisma/engines': true
+  '@prisma/engines@6.19.3': true
+  '@scarf/scarf@1.4.0': true

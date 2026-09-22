@@ -10,4 +10,117 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
+      - NEXT_PUBLIC_API_URL=http://localhost:3001
     restart: unless-stopped
+    networks:
+      - impactra-network
+
+  impactra-api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: impactra-api
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-impactra_app}:${POSTGRES_PASSWORD:-impactra_local_dev_pass}@impactra-postgres:5432/${POSTGRES_DB:-impactra}?schema=public
+      - REDIS_URL=redis://impactra-redis:6379
+      - MINIO_ENDPOINT=impactra-minio
+      - MINIO_PORT=9000
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-impactra_minio_admin}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-impactra_minio_dev_secret}
+      - MINIO_USE_SSL=false
+      - MINIO_BUCKET=impactra-artifacts
+      - CORS_ORIGIN=http://localhost:3000,http://impactra.local
+      - LOG_LEVEL=info
+    depends_on:
+      impactra-postgres:
+        condition: service_healthy
+      impactra-redis:
+        condition: service_healthy
+      impactra-minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://$$(hostname -i):3001/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+    networks:
+      - impactra-network
+
+  impactra-postgres:
+    image: postgres:17.4-alpine
+    container_name: impactra-postgres
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-impactra_app}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-impactra_local_dev_pass}
+      - POSTGRES_DB=${POSTGRES_DB:-impactra}
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - impactra_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-impactra_app} -d ${POSTGRES_DB:-impactra}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - impactra-network
+
+  impactra-redis:
+    image: redis:7.4.2-alpine
+    container_name: impactra-redis
+    ports:
+      - "6380:6379"
+    volumes:
+      - impactra_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+    networks:
+      - impactra-network
+
+  impactra-minio:
+    image: quay.io/minio/minio:RELEASE.2025-02-07T23-21-09Z
+    container_name: impactra-minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY:-impactra_minio_admin}
+      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY:-impactra_minio_dev_secret}
+    volumes:
+      - impactra_minio_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9000/minio/health/live >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - impactra-network
+
+networks:
+  impactra-network:
+    driver: bridge
+
+volumes:
+  impactra_postgres_data:
+    name: impactra_postgres_data
+  impactra_redis_data:
+    name: impactra_redis_data
+  impactra_minio_data:
+    name: impactra_minio_data

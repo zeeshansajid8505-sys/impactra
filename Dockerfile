@@ -26,7 +26,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
 # Compile Next.js standalone application via Turborepo
-RUN pnpm run build
+RUN pnpm --filter @impactra/web... build
 
 # 3. Production runner stage: Minimal Alpine runtime with standalone output
 FROM node:24.21.0-alpine AS runner

@@ -1,0 +1,14 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": "..",
+  "testRegex": ".e2e-spec.ts$",
+  "transform": {
+    "^.+\\.(t|j)s$": "ts-jest"
+  },
+  "maxWorkers": 1,
+  "testEnvironment": "node",
+  "moduleNameMapper": {
+    "^@impactra/shared$": "<rootDir>/../../packages/shared/src/index.ts",
+    "^@impactra/database$": "<rootDir>/../../packages/database/src/index.ts"
+  }
+}

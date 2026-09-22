@@ -10,13 +10,13 @@ Impactra analyzes software changes before deployment and helps engineering teams
 
 | Dimension | Status | Notes |
 | :--- | :--- | :--- |
-| **Project Status** | **Phase 01B-P Completed** | Visual identity redesign & detached Docker runtime established |
+| **Project Status** | **Phase 02 Completed** | Modular monolith backend & local infrastructure foundation established |
 | **Frontend Shell** | **Live (`apps/web`)** | Next.js 16.3.5, React 19, Tailwind CSS v4, App Router |
-| **Product Identity** | **Configured** | Browser Tab: `Impactra — Software Change Intelligence`, custom SVG favicon |
-| **Design System** | **Light-First Editorial UI** | Warm off-white canvas, graphite typography, restrained indigo accent, toggleable dark mode |
+| **Backend API** | **Live (`apps/api`)** | NestJS 11, TypeScript strict, Swagger docs at `http://localhost:3001/api/docs` |
+| **Persistence & Cache** | **Postgres 17, Redis 7** | Prisma ORM (`packages/database`), Docker volumes |
+| **Object Storage** | **MinIO (S3-Compatible)**| Local artifact and evidence package storage on ports 9000 & 9001 |
 | **Local Domain** | **`http://impactra.local`** | Persistent container runtime on HTTP port 80 (with port 3000 fallback) |
-| **Production Code** | **Foundation Shell Only** | Zero product feature code started |
-| **Core Product Features** | **Not Started** | Ingestion, Digital Twin engine, and analyzers deferred to Phase 02+ |
+| **Backend Port** | **`http://localhost:3001`** | Liveness `/health`, Readiness `/ready`, OpenAPI `/api/docs` |
 
 ---
 
@@ -93,35 +93,35 @@ Open your browser at:
 ```
 Impactra/
 ├── apps/
-│   └── web/                     # Next.js 16 App Router frontend application
-│       ├── src/
-│       │   ├── app/             # App Router pages, layouts, and icon.svg
-│       │   ├── components/      # Layout (TopNav, BrandMark), dashboard, and shared components
-│       │   ├── lib/             # Navigation config, constants, and utilities
-│       │   └── styles/          # globals.css with Tailwind v4 design tokens
-│       ├── public/              # Static assets (icon.svg, favicon.svg)
-│       ├── next.config.mjs      # Next.js config (standalone output enabled)
+│   ├── web/                     # Next.js 16 App Router frontend application
+│   │   ├── src/lib/api-client.ts# Typed client for backend connectivity
+│   │   └── ...
+│   └── api/                     # NestJS 11 backend API (ports 3001)
+│       ├── src/                 # Config, Database, Cache, Storage, Health modules
+│       ├── test/                # Unit and E2E integration tests
+│       ├── Dockerfile           # Dedicated multi-stage API container build
 │       └── package.json
 │
 ├── packages/
 │   ├── config/                  # Shared base tsconfig and lint rules
-│   │   ├── tsconfig.base.json
-│   │   └── package.json
-│   ├── shared/                  # Domain types, risk levels, and category definitions
-│   │   ├── src/index.ts
+│   ├── database/                # Prisma ORM foundation & PostgreSQL client
+│   │   ├── prisma/schema.prisma # SystemMetadata model & migrations
+│   │   └── README.md            # Multi-tenancy & RLS strategy
+│   ├── shared/                  # Domain types, risk levels, and API contracts
+│   │   ├── src/api.ts           # Health, Readiness, and Error contracts
 │   │   └── package.json
 │   └── ui/                      # Reusable UI primitives (Button, Badge, Card, StatusPill)
-│       ├── src/index.ts
-│       └── package.json
 │
 ├── docs/
 │   ├── PROJECT_FOUNDATION.md    # Architecture strategy, boundaries, and technical blueprint
 │   ├── UI_DESIGN_SYSTEM.md      # Visual identity, tokens, and component architecture
-│   └── PHASE_01B_REPORT.md      # Comprehensive Phase 01B-P delivery and verification report
+│   ├── PHASE_01B_REPORT.md      # Comprehensive Phase 01B-P delivery and verification report
+│   └── PHASE_02_REPORT.md       # Phase 02 Backend & Infrastructure report
 │
 ├── Dockerfile                   # Multi-stage production container build (Node 24, pnpm 12)
-├── compose.yaml                 # Detached local container configuration (ports 80 & 3000)
+├── compose.yaml                 # Multi-service Docker Compose (web, api, postgres, redis, minio)
 ├── .dockerignore                # Production container ignore rules
+├── .env.example                 # Documented local environment variable template
 ├── package.json                 # Monorepo root with Turborepo scripts
 ├── pnpm-workspace.yaml          # pnpm 12 workspace & build approvals configuration
 ├── turbo.json                   # Turborepo task pipeline
@@ -137,7 +137,7 @@ Impactra/
 # Typecheck all packages
 pnpm run typecheck
 
-# Lint check (ESLint flat config)
+# Lint check
 pnpm run lint
 
 # Monorepo production build
@@ -146,11 +146,11 @@ pnpm run build
 # Production dependency security audit
 pnpm audit --prod
 
-# Check git whitespace & formatting
-git diff --check
-
 # Validate Docker compose configuration
 docker compose config
+
+# Run persistent local environment (detached)
+docker compose up -d --build
 ```
 
 ---
@@ -160,6 +160,7 @@ docker compose config
 - [Project Foundation & Architecture Strategy](docs/PROJECT_FOUNDATION.md)
 - [UI/UX Design System & Standards](docs/UI_DESIGN_SYSTEM.md)
 - [Phase 01B-P Delivery Report & Verification](docs/PHASE_01B_REPORT.md)
+- [Phase 02 Backend & Infrastructure Report](docs/PHASE_02_REPORT.md)
 
 ---
 

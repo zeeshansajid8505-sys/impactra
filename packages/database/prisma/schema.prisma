@@ -1,0 +1,27 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+/// Foundational SystemMetadata model.
+/// Provides schema verification, migrations foundation, and health checks
+/// without inventing artificial or premature business domain models.
+///
+/// Multi-tenancy Constraint & Strategy:
+/// Impactra is designed to be multi-tenant. Future domain tables will include
+/// explicit tenant identifiers (e.g. `organizationId` / `tenantId`) and support
+/// PostgreSQL Row-Level Security (RLS) session-variable filtering (`app.current_tenant_id`)
+/// without requiring a migration rewrite of this foundational database layer.
+model SystemMetadata {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("system_metadata")
+}
