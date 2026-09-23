@@ -20,6 +20,7 @@ describe('validateEnv', () => {
     expect(result.MINIO_PORT).toBe(9000);
     expect(result.MINIO_ENDPOINT).toBe('localhost');
     expect(result.MINIO_USE_SSL).toBe(false);
+    expect(result.COOKIE_SECURE).toBe(false);
   });
 
   it('should coerce string port and boolean ssl properly', () => {
@@ -60,5 +61,52 @@ describe('validateEnv', () => {
 
     const { MINIO_SECRET_KEY, ...missingSecret } = validBaseEnv;
     expect(() => validateEnv(missingSecret)).toThrow(/MINIO_SECRET_KEY.*(required|cannot be empty)/i);
+  });
+
+  describe('COOKIE_SECURE configuration', () => {
+    it('should default COOKIE_SECURE to false in development and test environments', () => {
+      const devResult = validateEnv({ ...validBaseEnv, NODE_ENV: 'development' });
+      expect(devResult.COOKIE_SECURE).toBe(false);
+
+      const testResult = validateEnv({ ...validBaseEnv, NODE_ENV: 'test' });
+      expect(testResult.COOKIE_SECURE).toBe(false);
+    });
+
+    it('should default COOKIE_SECURE to true in production when undefined', () => {
+      const prodResult = validateEnv({ ...validBaseEnv, NODE_ENV: 'production' });
+      expect(prodResult.COOKIE_SECURE).toBe(true);
+    });
+
+    it('should respect explicitly provided COOKIE_SECURE boolean', () => {
+      const explicitFalse = validateEnv({
+        ...validBaseEnv,
+        NODE_ENV: 'production',
+        COOKIE_SECURE: false,
+      });
+      expect(explicitFalse.COOKIE_SECURE).toBe(false);
+
+      const explicitTrue = validateEnv({
+        ...validBaseEnv,
+        NODE_ENV: 'development',
+        COOKIE_SECURE: true,
+      });
+      expect(explicitTrue.COOKIE_SECURE).toBe(true);
+    });
+
+    it('should coerce string COOKIE_SECURE values properly', () => {
+      const strFalse = validateEnv({
+        ...validBaseEnv,
+        NODE_ENV: 'production',
+        COOKIE_SECURE: 'false',
+      });
+      expect(strFalse.COOKIE_SECURE).toBe(false);
+
+      const strTrue = validateEnv({
+        ...validBaseEnv,
+        NODE_ENV: 'development',
+        COOKIE_SECURE: 'true',
+      });
+      expect(strTrue.COOKIE_SECURE).toBe(true);
+    });
   });
 });

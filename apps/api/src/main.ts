@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import { json, urlencoded } from 'express';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
@@ -21,11 +22,14 @@ async function bootstrap() {
     }),
   );
 
-  // 2. Request body size limits
+  // 2. Cookie parser middleware for session authentication
+  app.use(cookieParser());
+
+  // 3. Request body size limits
   app.use(json({ limit: '10mb' }));
   app.use(urlencoded({ extended: true, limit: '10mb' }));
 
-  // 3. Strict CORS configuration
+  // 4. Strict CORS configuration with credentials and tenant headers
   const rawCorsOrigin =
     process.env.CORS_ORIGIN ||
     'http://localhost:3000,http://impactra.local';
@@ -39,7 +43,7 @@ async function bootstrap() {
       origin: string | undefined,
       callback: (err: Error | null, allow?: boolean) => void,
     ) => {
-      // Allow requests with no origin (like mobile apps, curl, server-to-server)
+      // Allow server-to-server, curl, container healthchecks with no origin
       if (!origin) return callback(null, true);
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
@@ -47,18 +51,18 @@ async function bootstrap() {
       return callback(new Error(`Origin ${origin} not allowed by CORS policy`), false);
     },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-request-id'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-request-id', 'x-organization-id'],
     credentials: true,
   });
 
-  // 4. Global error handling and validation
+  // 5. Global error handling and validation
   app.useGlobalFilters(new AllExceptionsFilter());
   app.useGlobalPipes(new AppValidationPipe());
 
-  // 5. Graceful shutdown hooks
+  // 6. Graceful shutdown hooks
   app.enableShutdownHooks();
 
-  // 6. OpenAPI / Swagger Documentation
+  // 7. OpenAPI / Swagger Documentation
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Impactra API')
     .setDescription(
@@ -66,6 +70,15 @@ async function bootstrap() {
     )
     .setVersion('0.1.0')
     .addTag('Health & Readiness', 'Liveness and readiness dependency verification probes')
+    .addTag('Authentication & Sessions', 'User registration, login, logout, and session lifecycle')
+    .addTag('Organizations & Multi-Tenancy', 'Multi-tenant organization boundary and isolation')
+    .addTag('Organization Memberships & RBAC', 'Role-based access control, invitations, and member governance')
+    .addCookieAuth('impactra_session', {
+      type: 'apiKey',
+      in: 'cookie',
+      name: 'impactra_session',
+      description: 'HttpOnly session token cookie',
+    })
     .build();
 
   const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
@@ -76,7 +89,7 @@ async function bootstrap() {
     },
   });
 
-  // 7. Start listener
+  // 8. Start listener
   const port = parseInt(process.env.PORT || '3001', 10);
   await app.listen(port, '0.0.0.0');
 

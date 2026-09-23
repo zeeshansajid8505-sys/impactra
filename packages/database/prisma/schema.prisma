@@ -10,12 +10,6 @@ generator client {
 /// Foundational SystemMetadata model.
 /// Provides schema verification, migrations foundation, and health checks
 /// without inventing artificial or premature business domain models.
-///
-/// Multi-tenancy Constraint & Strategy:
-/// Impactra is designed to be multi-tenant. Future domain tables will include
-/// explicit tenant identifiers (e.g. `organizationId` / `tenantId`) and support
-/// PostgreSQL Row-Level Security (RLS) session-variable filtering (`app.current_tenant_id`)
-/// without requiring a migration rewrite of this foundational database layer.
 model SystemMetadata {
   id        String   @id @default(uuid())
   key       String   @unique
@@ -24,4 +18,134 @@ model SystemMetadata {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("system_metadata")
+}
+
+/// Role-Based Access Control (RBAC) roles for Impactra organizations.
+enum MembershipRole {
+  OWNER
+  ADMIN
+  ARCHITECT
+  SECURITY_ENGINEER
+  DEVELOPER
+  RELEASE_MANAGER
+  QA_ENGINEER
+  AUDITOR
+  VIEWER
+}
+
+/// Core User entity.
+model User {
+  id                      String                   @id @default(uuid())
+  email                   String                   @unique
+  name                    String
+  passwordHash            String                   @map("password_hash")
+  emailVerifiedAt         DateTime?                @map("email_verified_at")
+  createdAt               DateTime                 @default(now()) @map("created_at")
+  updatedAt               DateTime                 @updatedAt @map("updated_at")
+  memberships             OrganizationMembership[]
+  sessions                Session[]
+  passwordResetTokens     PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
+  sentInvitations         OrganizationInvitation[] @relation("InvitedByUser")
+
+  @@map("users")
+}
+
+/// Organization tenant boundary for multi-tenancy.
+model Organization {
+  id          String                   @id @default(uuid())
+  name        String
+  slug        String                   @unique
+  createdAt   DateTime                 @default(now()) @map("created_at")
+  updatedAt   DateTime                 @updatedAt @map("updated_at")
+  memberships OrganizationMembership[]
+  invitations OrganizationInvitation[]
+
+  @@map("organizations")
+}
+
+/// Organization membership linking users to organizations with assigned roles.
+model OrganizationMembership {
+  id             String         @id @default(uuid())
+  organizationId String         @map("organization_id")
+  userId         String         @map("user_id")
+  role           MembershipRole @default(DEVELOPER)
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@index([organizationId])
+  @@map("organization_memberships")
+}
+
+/// Durable, server-managed user sessions.
+/// Stores only the cryptographically secure SHA-256 hash of the session token.
+model Session {
+  id               String    @id @default(uuid())
+  sessionTokenHash String    @unique @map("session_token_hash")
+  userId           String    @map("user_id")
+  expiresAt        DateTime  @map("expires_at")
+  revokedAt        DateTime? @map("revoked_at")
+  userAgent        String?   @map("user_agent")
+  ipAddress        String?   @map("ip_address")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  lastActiveAt     DateTime  @default(now()) @map("last_active_at")
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+/// Password reset tokens for secure credential recovery.
+/// Stores only the SHA-256 hash of the reset token with single-use flag.
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  tokenHash String    @unique @map("token_hash")
+  userId    String    @map("user_id")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+/// Email verification tokens.
+/// Stores only the SHA-256 hash of the verification token.
+model EmailVerificationToken {
+  id        String    @id @default(uuid())
+  tokenHash String    @unique @map("token_hash")
+  userId    String    @map("user_id")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("email_verification_tokens")
+}
+
+/// Invitations for joining an organization.
+/// Stores hashed invitation token with expiration and role.
+model OrganizationInvitation {
+  id             String         @id @default(uuid())
+  organizationId String         @map("organization_id")
+  email          String
+  role           MembershipRole @default(DEVELOPER)
+  tokenHash      String         @unique @map("token_hash")
+  inviterId      String         @map("inviter_id")
+  expiresAt      DateTime       @map("expires_at")
+  acceptedAt     DateTime?      @map("accepted_at")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  inviter        User           @relation("InvitedByUser", fields: [inviterId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([email])
+  @@map("organization_invitations")
 }

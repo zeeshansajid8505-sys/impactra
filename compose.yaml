@@ -10,7 +10,6 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
-      - NEXT_PUBLIC_API_URL=http://localhost:3001
     restart: unless-stopped
     networks:
       - impactra-network
@@ -25,6 +24,7 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3001
+      - COOKIE_SECURE=false
       - DATABASE_URL=postgresql://${POSTGRES_USER:-impactra_app}:${POSTGRES_PASSWORD:-impactra_local_dev_pass}@impactra-postgres:5432/${POSTGRES_DB:-impactra}?schema=public
       - REDIS_URL=redis://impactra-redis:6379
       - MINIO_ENDPOINT=impactra-minio

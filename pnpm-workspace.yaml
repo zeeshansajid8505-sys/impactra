@@ -13,3 +13,5 @@ allowBuilds:
   '@prisma/engines': true
   '@prisma/engines@6.19.3': true
   '@scarf/scarf@1.4.0': true
+  'argon2': true
+  'argon2@0.41.1': true

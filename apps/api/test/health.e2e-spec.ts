@@ -46,7 +46,9 @@ describe('Health & Readiness Endpoints (E2E)', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    if (app) {
+      await app.close();
+    }
   });
 
   it('GET /health returns 200 with liveness metadata', async () => {

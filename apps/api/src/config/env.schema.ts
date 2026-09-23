@@ -34,7 +34,23 @@ export const envSchema = z.object({
   LOG_LEVEL: z
     .enum(['debug', 'info', 'warn', 'error'])
     .default('info'),
-});
+  COOKIE_SECURE: z
+    .preprocess((val) => {
+      if (typeof val === 'string') {
+        const lower = val.trim().toLowerCase();
+        if (lower === 'true' || lower === '1') return true;
+        if (lower === 'false' || lower === '0') return false;
+      }
+      return val;
+    }, z.boolean().optional())
+    .optional(),
+}).transform((data) => ({
+  ...data,
+  COOKIE_SECURE:
+    data.COOKIE_SECURE !== undefined
+      ? data.COOKIE_SECURE
+      : data.NODE_ENV === 'production',
+}));
 
 export type EnvConfig = z.infer<typeof envSchema>;
 
