@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import {
   UserDto,
   SessionDto,
@@ -32,7 +32,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const ACTIVE_ORG_STORAGE_KEY = 'impactra_active_org_id';
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserDto | null>(null);
   const [session, setSession] = useState<SessionDto | null>(null);
   const [organizations, setOrganizations] = useState<UserOrganizationSummary[]>([]);

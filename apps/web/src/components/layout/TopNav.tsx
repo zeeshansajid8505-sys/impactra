@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -221,6 +221,14 @@ export function TopNav() {
                         </p>
                       </div>
                       <Link
+                        href="/workspace/repositories"
+                        onClick={() => setProfileMenuOpen(false)}
+                        className="flex items-center gap-2 px-2 py-1.5 rounded text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-colors"
+                      >
+                        <GitFork className="w-3.5 h-3.5 text-indigo-500" />
+                        <span>Connected Repositories</span>
+                      </Link>
+                      <Link
                         href="/workspace/settings"
                         onClick={() => setProfileMenuOpen(false)}
                         className="flex items-center gap-2 px-2 py-1.5 rounded text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-colors"
@@ -309,6 +317,14 @@ export function TopNav() {
             <div className="pt-3 border-t border-[var(--border)] flex flex-col gap-2">
               {user ? (
                 <>
+                  <Link
+                    href="/workspace/repositories"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="w-full flex items-center justify-center gap-1.5 text-xs font-medium px-3 py-2 rounded-md bg-[var(--surface-raised)] border border-[var(--border)] text-[var(--text-primary)]"
+                  >
+                    <GitFork className="w-3.5 h-3.5 text-indigo-500" />
+                    <span>Connected Repositories</span>
+                  </Link>
                   <Link
                     href="/workspace/settings"
                     onClick={() => setMobileMenuOpen(false)}

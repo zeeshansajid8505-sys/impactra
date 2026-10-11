@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useState, type ElementType } from 'react';
 import {
   Boxes,
   Database,
@@ -16,7 +16,7 @@ interface ModuleEntity {
   name: string;
   category: string;
   tech: string;
-  icon: React.ElementType;
+  icon: ElementType;
   dependencies: string[];
   role: string;
 }

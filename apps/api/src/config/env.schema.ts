@@ -44,6 +44,12 @@ export const envSchema = z.object({
       return val;
     }, z.boolean().optional())
     .optional(),
+  GITHUB_APP_ID: z.string().optional(),
+  GITHUB_APP_SLUG: z.string().optional(),
+  GITHUB_APP_PRIVATE_KEY_BASE64: z.string().optional(),
+  GITHUB_WEBHOOK_SECRET: z.string().optional(),
+  GITHUB_API_URL: z.string().url().default('https://api.github.com'),
+  GITHUB_WEB_URL: z.string().url().default('https://github.com'),
 }).transform((data) => ({
   ...data,
   COOKIE_SECURE:

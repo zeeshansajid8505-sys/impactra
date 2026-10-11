@@ -1,4 +1,3 @@
-import React from 'react';
 import { ArrowRight, GitFork } from 'lucide-react';
 import { Button } from '@impactra/ui';
 import { ExplanatoryModalType } from '../shared/ExplanatoryModal';

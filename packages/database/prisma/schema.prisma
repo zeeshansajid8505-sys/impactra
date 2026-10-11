@@ -47,19 +47,23 @@ model User {
   passwordResetTokens     PasswordResetToken[]
   emailVerificationTokens EmailVerificationToken[]
   sentInvitations         OrganizationInvitation[] @relation("InvitedByUser")
+  githubInstallationStates GitHubInstallationState[]
 
   @@map("users")
 }
 
 /// Organization tenant boundary for multi-tenancy.
 model Organization {
-  id          String                   @id @default(uuid())
-  name        String
-  slug        String                   @unique
-  createdAt   DateTime                 @default(now()) @map("created_at")
-  updatedAt   DateTime                 @updatedAt @map("updated_at")
-  memberships OrganizationMembership[]
-  invitations OrganizationInvitation[]
+  id                      String                   @id @default(uuid())
+  name                    String
+  slug                    String                   @unique
+  createdAt               DateTime                 @default(now()) @map("created_at")
+  updatedAt               DateTime                 @updatedAt @map("updated_at")
+  memberships             OrganizationMembership[]
+  invitations             OrganizationInvitation[]
+  githubInstallations     GitHubInstallation[]
+  githubInstallationStates GitHubInstallationState[]
+  repositoryConnections   RepositoryConnection[]
 
   @@map("organizations")
 }
@@ -148,4 +152,111 @@ model OrganizationInvitation {
   @@index([organizationId])
   @@index([email])
   @@map("organization_invitations")
+}
+
+/// GitHub Installation Status enum.
+enum GitHubInstallationStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+  DISCONNECTED
+}
+
+/// GitHub App installation bound to an Impactra organization.
+model GitHubInstallation {
+  id                   String                   @id @default(uuid())
+  organizationId       String                   @map("organization_id")
+  githubInstallationId String                   @unique @map("github_installation_id")
+  accountId            String                   @map("account_id")
+  accountLogin         String                   @map("account_login")
+  accountType          String                   @map("account_type")
+  repositorySelection  String                   @map("repository_selection")
+  permissions          Json                     @map("permissions")
+  events               Json                     @map("events")
+  status               GitHubInstallationStatus @default(ACTIVE)
+  installedAt          DateTime                 @default(now()) @map("installed_at")
+  suspendedAt          DateTime?                @map("suspended_at")
+  lastSyncedAt         DateTime?                @map("last_synced_at")
+  createdAt            DateTime                 @default(now()) @map("created_at")
+  updatedAt            DateTime                 @updatedAt @map("updated_at")
+  organization         Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  repositories         RepositoryConnection[]
+
+  @@index([organizationId])
+  @@index([status])
+  @@map("github_installations")
+}
+
+/// Ephemeral CSRF installation state binding user and organization.
+model GitHubInstallationState {
+  id             String       @id @default(uuid())
+  organizationId String       @map("organization_id")
+  userId         String       @map("user_id")
+  stateHash      String       @unique @map("state_hash")
+  expiresAt      DateTime     @map("expires_at")
+  consumedAt     DateTime?    @map("consumed_at")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("github_installation_states")
+}
+
+/// Repository connection metadata tracked by Impactra.
+model RepositoryConnection {
+  id                   String              @id @default(uuid())
+  organizationId       String              @map("organization_id")
+  githubInstallationId String              @map("github_installation_id")
+  githubRepositoryId   String              @map("github_repository_id")
+  ownerLogin           String              @map("owner_login")
+  name                 String
+  fullName             String              @map("full_name")
+  defaultBranch        String              @default("main") @map("default_branch")
+  isPrivate            Boolean             @default(false) @map("is_private")
+  visibility           String              @default("public")
+  archived             Boolean             @default(false)
+  disabled             Boolean             @default(false)
+  fork                 Boolean             @default(false)
+  htmlUrl              String?             @map("html_url")
+  available            Boolean             @default(true)
+  connected            Boolean             @default(false)
+  connectedAt          DateTime?           @map("connected_at")
+  disconnectedAt       DateTime?           @map("disconnected_at")
+  lastSyncedAt         DateTime?           @map("last_synced_at")
+  createdAt            DateTime            @default(now()) @map("created_at")
+  updatedAt            DateTime            @updatedAt @map("updated_at")
+  organization         Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  installation         GitHubInstallation  @relation(fields: [githubInstallationId], references: [githubInstallationId], onDelete: Cascade)
+
+  @@unique([organizationId, githubRepositoryId])
+  @@index([organizationId])
+  @@index([githubInstallationId])
+  @@index([connected])
+  @@index([available])
+  @@map("repository_connections")
+}
+
+/// Idempotent webhook delivery log for GitHub events.
+model GitHubWebhookDelivery {
+  id                   String    @id @default(uuid())
+  githubDeliveryId     String    @unique @map("github_delivery_id")
+  event                String
+  action               String?
+  githubInstallationId String?   @map("github_installation_id")
+  organizationId       String?   @map("organization_id")
+  payloadSha256        String    @map("payload_sha256")
+  status               String    @default("processed")
+  receivedAt           DateTime  @default(now()) @map("received_at")
+  processedAt          DateTime? @map("processed_at")
+  failureCode          String?   @map("failure_code")
+  attemptCount         Int       @default(1) @map("attempt_count")
+
+  @@index([event])
+  @@index([githubInstallationId])
+  @@index([organizationId])
+  @@index([receivedAt])
+  @@map("github_webhook_deliveries")
 }

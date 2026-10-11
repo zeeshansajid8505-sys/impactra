@@ -26,5 +26,13 @@ export default registerAs('app', () => {
     },
     corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:3000,http://impactra.local',
     logLevel: process.env.LOG_LEVEL || 'info',
+    github: {
+      appId: process.env.GITHUB_APP_ID,
+      appSlug: process.env.GITHUB_APP_SLUG,
+      privateKeyBase64: process.env.GITHUB_APP_PRIVATE_KEY_BASE64,
+      webhookSecret: process.env.GITHUB_WEBHOOK_SECRET,
+      apiUrl: process.env.GITHUB_API_URL || 'https://api.github.com',
+      webUrl: process.env.GITHUB_WEB_URL || 'https://github.com',
+    },
   };
 });

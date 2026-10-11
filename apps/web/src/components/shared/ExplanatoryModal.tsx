@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { X, GitBranch, Layers, ArrowRight, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import { Button } from '@impactra/ui';
 

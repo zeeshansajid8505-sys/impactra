@@ -61,7 +61,11 @@ export type Permission =
   | 'membership.role.update'
   | 'membership.remove'
   | 'session.manage.self'
-  | 'session.manage.all';
+  | 'session.manage.all'
+  | 'github_installation.read'
+  | 'github_installation.manage'
+  | 'repository.read'
+  | 'repository.manage';
 
 export interface UserDto {
   id: string;
@@ -189,4 +193,85 @@ export interface InviteMemberResponse {
   membership?: MembershipDto;
   invitationId?: string;
   invitationLink?: string;
+}
+
+// ==========================================
+// Phase 04: GitHub App & Repositories Contracts
+// ==========================================
+
+export type GitHubInstallationStatus = 'ACTIVE' | 'SUSPENDED' | 'DELETED' | 'DISCONNECTED';
+
+export interface GitHubConfigStatus {
+  configured: boolean;
+  appSlug?: string;
+  installationsEnabled: boolean;
+  appIdConfigured?: boolean;
+  slugConfigured?: boolean;
+  privateKeyConfigured?: boolean;
+  webhookSecretConfigured?: boolean;
+  installUrl?: string | null;
+}
+
+export interface GitHubInstallationStartResponse {
+  installUrl: string;
+}
+
+export interface GitHubInstallationDto {
+  id: string;
+  organizationId: string;
+  githubInstallationId: string;
+  accountId: string;
+  accountLogin: string;
+  accountType: string;
+  repositorySelection: string;
+  status: GitHubInstallationStatus;
+  installedAt: string;
+  suspendedAt: string | null;
+  lastSyncedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RepositoryConnectionDto {
+  id: string;
+  organizationId: string;
+  githubInstallationId: string;
+  githubRepositoryId: string;
+  nodeId: string | null;
+  ownerLogin: string;
+  name: string;
+  fullName: string;
+  defaultBranch: string;
+  isPrivate: boolean;
+  visibility: string;
+  archived: boolean;
+  disabled: boolean;
+  fork: boolean;
+  htmlUrl: string;
+  available: boolean;
+  connected: boolean;
+  connectedAt: string | null;
+  disconnectedAt: string | null;
+  githubUpdatedAt: string | null;
+  lastSyncedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RepositoryListResponse {
+  repositories: RepositoryConnectionDto[];
+  total: number;
+}
+
+export interface RepositorySyncResponse {
+  syncedCount: number;
+  availableCount: number;
+  removedCount: number;
+}
+
+export interface WebhookProcessingResponse {
+  received: boolean;
+  duplicate?: boolean;
+  handled?: boolean;
+  deliveryId?: string;
 }

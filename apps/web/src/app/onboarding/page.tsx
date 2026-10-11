@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { Building2, ArrowRight, ShieldAlert, Sparkles, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
@@ -28,7 +28,7 @@ export default function OnboardingPage() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
 

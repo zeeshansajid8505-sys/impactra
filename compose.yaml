@@ -35,6 +35,12 @@ services:
       - MINIO_BUCKET=impactra-artifacts
       - CORS_ORIGIN=http://localhost:3000,http://impactra.local
       - LOG_LEVEL=info
+      - GITHUB_APP_ID=${GITHUB_APP_ID:-}
+      - GITHUB_APP_SLUG=${GITHUB_APP_SLUG:-}
+      - GITHUB_APP_PRIVATE_KEY_BASE64=${GITHUB_APP_PRIVATE_KEY_BASE64:-}
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET:-}
+      - GITHUB_API_URL=${GITHUB_API_URL:-https://api.github.com}
+      - GITHUB_WEB_URL=${GITHUB_WEB_URL:-https://github.com}
     depends_on:
       impactra-postgres:
         condition: service_healthy

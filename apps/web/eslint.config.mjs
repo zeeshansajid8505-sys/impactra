@@ -1,9 +1,13 @@
-import nextVitals from 'eslint-config-next/core-web-vitals';
-import nextTypeScript from 'eslint-config-next/typescript';
+import nextConfig from 'eslint-config-next';
 
 const eslintConfig = [
-  ...nextVitals,
-  ...nextTypeScript,
+  ...nextConfig,
+  {
+    rules: {
+      '@next/next/no-html-link-for-pages': 'error',
+      '@next/next/no-sync-scripts': 'error',
+    },
+  },
   {
     ignores: [
       '.next/**',
@@ -16,4 +20,3 @@ const eslintConfig = [
 ];
 
 export default eslintConfig;
-

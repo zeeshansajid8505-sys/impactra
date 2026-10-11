@@ -8,4 +8,8 @@ export enum Permission {
   MEMBERSHIP_REMOVE = 'membership.remove',
   SESSION_MANAGE_SELF = 'session.manage.self',
   SESSION_MANAGE_ALL = 'session.manage.all',
+  GITHUB_INSTALLATION_READ = 'github_installation.read',
+  GITHUB_INSTALLATION_MANAGE = 'github_installation.manage',
+  REPOSITORY_READ = 'repository.read',
+  REPOSITORY_MANAGE = 'repository.manage',
 }

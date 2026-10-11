@@ -52,6 +52,27 @@ describe('AllExceptionsFilter', () => {
     );
   });
 
+  it('should format recognized Express body-parser 413 entity.too.large error into 413 ApiErrorResponse', () => {
+    const bodyParserError = Object.assign(new Error('request entity too large'), {
+      status: 413,
+      statusCode: 413,
+      type: 'entity.too.large',
+    });
+
+    filter.catch(bodyParserError, mockHost);
+
+    expect(mockStatus).toHaveBeenCalledWith(413);
+    expect(mockJson).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusCode: 413,
+        code: 'PAYLOAD_TOO_LARGE',
+        message: 'Request body too large',
+        requestId: 'test-req-id-123',
+        path: '/test-endpoint',
+      }),
+    );
+  });
+
   it('should format unhandled generic Error safely without leaking internal details or stack traces to caller', () => {
     // Spy on logger to silence console output during tests and verify safe logging behavior
     const loggerSpy = jest

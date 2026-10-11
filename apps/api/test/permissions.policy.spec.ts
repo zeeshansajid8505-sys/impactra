@@ -63,4 +63,41 @@ describe('PermissionsPolicy', () => {
       ]),
     ).toBe(false);
   });
+
+  describe('Phase 04 GitHub & Repository RBAC', () => {
+    it('OWNER and ADMIN should possess full GitHub installation and repository management capabilities', () => {
+      for (const role of ['OWNER', 'ADMIN'] as const) {
+        expect(hasPermission(role, Permission.GITHUB_INSTALLATION_READ)).toBe(true);
+        expect(hasPermission(role, Permission.GITHUB_INSTALLATION_MANAGE)).toBe(true);
+        expect(hasPermission(role, Permission.REPOSITORY_READ)).toBe(true);
+        expect(hasPermission(role, Permission.REPOSITORY_MANAGE)).toBe(true);
+      }
+    });
+
+    it('ARCHITECT and DEVELOPER should possess repository read and installation read, but NOT repository manage or installation manage', () => {
+      for (const role of ['ARCHITECT', 'DEVELOPER'] as const) {
+        expect(hasPermission(role, Permission.GITHUB_INSTALLATION_READ)).toBe(true);
+        expect(hasPermission(role, Permission.GITHUB_INSTALLATION_MANAGE)).toBe(false);
+        expect(hasPermission(role, Permission.REPOSITORY_READ)).toBe(true);
+        expect(hasPermission(role, Permission.REPOSITORY_MANAGE)).toBe(false);
+      }
+    });
+
+    it('SECURITY_ENGINEER, RELEASE_MANAGER, QA_ENGINEER, AUDITOR, VIEWER should have read-only access to installations and repositories', () => {
+      const readOnlyRoles = [
+        'SECURITY_ENGINEER',
+        'RELEASE_MANAGER',
+        'QA_ENGINEER',
+        'AUDITOR',
+        'VIEWER',
+      ] as const;
+
+      for (const role of readOnlyRoles) {
+        expect(hasPermission(role, Permission.GITHUB_INSTALLATION_READ)).toBe(true);
+        expect(hasPermission(role, Permission.REPOSITORY_READ)).toBe(true);
+        expect(hasPermission(role, Permission.GITHUB_INSTALLATION_MANAGE)).toBe(false);
+        expect(hasPermission(role, Permission.REPOSITORY_MANAGE)).toBe(false);
+      }
+    });
+  });
 });

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import {
   Building2,
   Users,
@@ -56,7 +56,7 @@ function OrganizationProfileForm({
   const [orgError, setOrgError] = useState<string | null>(null);
   const [orgLoading, setOrgLoading] = useState(false);
 
-  const handleUpdateOrg = async (e: React.FormEvent) => {
+  const handleUpdateOrg = async (e: FormEvent) => {
     e.preventDefault();
     setOrgLoading(true);
     setOrgSuccess(null);
@@ -212,7 +212,7 @@ export default function SettingsPage() {
     }
   };
 
-  const handleInviteMember = async (e: React.FormEvent) => {
+  const handleInviteMember = async (e: FormEvent) => {
     e.preventDefault();
     if (!activeOrg || !inviteEmail.trim()) return;
     setInviteSuccess(null);
@@ -267,7 +267,7 @@ export default function SettingsPage() {
     }
   };
 
-  const handleChangePassword = async (e: React.FormEvent) => {
+  const handleChangePassword = async (e: FormEvent) => {
     e.preventDefault();
     setPwdSuccess(null);
     setPwdError(null);

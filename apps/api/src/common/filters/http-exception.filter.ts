@@ -87,6 +87,15 @@ export class AllExceptionsFilter implements ExceptionFilter {
           details = respObj.message;
         }
       }
+    } else if (
+      // Safely recognize Express / body-parser 413 Payload Too Large errors
+      (typeof (exception as any)?.status === 'number' && (exception as any).status === 413) ||
+      (typeof (exception as any)?.statusCode === 'number' && (exception as any).statusCode === 413) ||
+      (exception as any)?.type === 'entity.too.large'
+    ) {
+      statusCode = HttpStatus.PAYLOAD_TOO_LARGE;
+      code = 'PAYLOAD_TOO_LARGE';
+      message = 'Request body too large';
     } else if (exception instanceof Error) {
       // Unhandled non-Http error (e.g. database error, network timeout)
       // Never expose raw SQL, paths, or secrets to caller
@@ -140,6 +149,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
         return 'NOT_FOUND';
       case HttpStatus.CONFLICT:
         return 'CONFLICT';
+      case HttpStatus.PAYLOAD_TOO_LARGE:
+        return 'PAYLOAD_TOO_LARGE';
       case HttpStatus.UNPROCESSABLE_ENTITY:
         return 'UNPROCESSABLE_ENTITY';
       case HttpStatus.SERVICE_UNAVAILABLE:

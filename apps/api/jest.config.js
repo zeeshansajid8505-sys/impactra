@@ -9,6 +9,7 @@ module.exports = {
   collectCoverageFrom: ['src/**/*.(t|j)s'],
   coverageDirectory: './coverage',
   testEnvironment: 'node',
+  setupFiles: ['<rootDir>/test/setup-env.ts'],
   moduleNameMapper: {
     '^@impactra/shared$': '<rootDir>/../../packages/shared/src/index.ts',
     '^@impactra/database$': '<rootDir>/../../packages/database/src/index.ts',

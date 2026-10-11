@@ -13,6 +13,7 @@ import { SessionsModule } from './sessions/sessions.module';
 import { AuthModule } from './auth/auth.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { MembershipsModule } from './memberships/memberships.module';
+import { GithubModule } from './github/github.module';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { LoggingMiddleware } from './common/middleware/logging.middleware';
 
@@ -28,6 +29,7 @@ import { LoggingMiddleware } from './common/middleware/logging.middleware';
     AuthModule,
     OrganizationsModule,
     MembershipsModule,
+    GithubModule,
   ],
 })
 export class AppModule implements NestModule {

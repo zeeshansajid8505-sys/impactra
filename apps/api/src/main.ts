@@ -3,10 +3,14 @@ import { Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
-import { json, urlencoded } from 'express';
+import { json, urlencoded, Request, Response } from 'express';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 import { AppValidationPipe } from './common/pipes/validation.pipe';
+
+interface RawBodyRequest extends Request {
+  rawBody?: Buffer;
+}
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -25,9 +29,20 @@ async function bootstrap() {
   // 2. Cookie parser middleware for session authentication
   app.use(cookieParser());
 
-  // 3. Request body size limits
-  app.use(json({ limit: '10mb' }));
-  app.use(urlencoded({ extended: true, limit: '10mb' }));
+  // 3. Request body size limits:
+  // Scope raw body capture and larger limit (5MB) specifically to GitHub webhooks for HMAC signature verification.
+  // Standard API endpoints use a conservative 1MB limit without raw body caching to minimize memory footprint and prevent DoS.
+  app.use(
+    '/github/webhooks',
+    json({
+      limit: '5mb',
+      verify: (req: RawBodyRequest, _res: Response, buf: Buffer) => {
+        req.rawBody = buf;
+      },
+    }),
+  );
+  app.use(json({ limit: '1mb' }));
+  app.use(urlencoded({ extended: true, limit: '1mb' }));
 
   // 4. Strict CORS configuration with credentials and tenant headers
   const rawCorsOrigin =
@@ -73,6 +88,8 @@ async function bootstrap() {
     .addTag('Authentication & Sessions', 'User registration, login, logout, and session lifecycle')
     .addTag('Organizations & Multi-Tenancy', 'Multi-tenant organization boundary and isolation')
     .addTag('Organization Memberships & RBAC', 'Role-based access control, invitations, and member governance')
+    .addTag('GitHub Integration', 'GitHub App integration, installation lifecycle, and webhooks')
+    .addTag('Repository Connections', 'Repository metadata synchronization and onboarding')
     .addCookieAuth('impactra_session', {
       type: 'apiKey',
       in: 'cookie',

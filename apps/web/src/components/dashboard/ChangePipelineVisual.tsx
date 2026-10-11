@@ -1,4 +1,3 @@
-import React from 'react';
 import { GitCommit, Network, Radio, ShieldCheck } from 'lucide-react';
 
 const STAGES = [

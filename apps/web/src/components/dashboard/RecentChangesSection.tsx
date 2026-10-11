@@ -1,4 +1,3 @@
-import React from 'react';
 import { GitPullRequest, GitFork, ArrowUpRight } from 'lucide-react';
 import { ExplanatoryModalType } from '../shared/ExplanatoryModal';
 

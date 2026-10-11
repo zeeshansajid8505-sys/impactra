@@ -15,6 +15,12 @@ import {
   UserOrganizationSummary,
   CreateOrganizationResponse,
   InviteMemberResponse,
+  GitHubConfigStatus,
+  GitHubInstallationStartResponse,
+  GitHubInstallationDto,
+  RepositoryConnectionDto,
+  RepositoryListResponse,
+  RepositorySyncResponse,
 } from '@impactra/shared';
 
 export function getApiBaseUrl(): string {
@@ -280,4 +286,152 @@ export async function apiRemoveMember(
     },
   );
   await handleResponse<{ message: string }>(res);
+}
+
+// ==========================================
+// Phase 04: GitHub Integration & Repositories API
+// ==========================================
+
+export async function apiGetGitHubConfigStatus(): Promise<GitHubConfigStatus> {
+  const res = await fetch(`${getApiBaseUrl()}/github/config/status`, {
+    method: 'GET',
+    headers: { Accept: 'application/json' },
+    credentials: 'include',
+  });
+  return handleResponse<GitHubConfigStatus>(res);
+}
+
+export async function apiStartGitHubInstallation(
+  organizationId: string,
+): Promise<GitHubInstallationStartResponse> {
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/github/installations/start`,
+    {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+    },
+  );
+  return handleResponse<GitHubInstallationStartResponse>(res);
+}
+
+export async function apiGetGitHubInstallation(
+  organizationId: string,
+): Promise<GitHubInstallationDto | null> {
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/github/installation`,
+    {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+    },
+  );
+  return handleResponse<GitHubInstallationDto | null>(res);
+}
+
+export async function apiDisconnectGitHubInstallation(
+  organizationId: string,
+): Promise<void> {
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/github/installation`,
+    {
+      method: 'DELETE',
+      headers: {
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+    },
+  );
+  await handleResponse<{ disconnected: boolean }>(res);
+}
+
+export async function apiSyncRepositories(
+  organizationId: string,
+): Promise<RepositorySyncResponse> {
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/github/sync`,
+    {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+    },
+  );
+  return handleResponse<RepositorySyncResponse>(res);
+}
+
+export async function apiListRepositories(
+  organizationId: string,
+  params?: {
+    search?: string;
+    connected?: boolean;
+    available?: boolean;
+    page?: number;
+    limit?: number;
+  },
+): Promise<RepositoryListResponse> {
+  const query = new URLSearchParams();
+  if (params?.search) query.set('search', params.search);
+  if (params?.connected !== undefined) query.set('connected', String(params.connected));
+  if (params?.available !== undefined) query.set('available', String(params.available));
+  if (params?.page) query.set('page', String(params.page));
+  if (params?.limit) query.set('limit', String(params.limit));
+
+  const qs = query.toString();
+  const url = `${getApiBaseUrl()}/organizations/${organizationId}/repositories${qs ? `?${qs}` : ''}`;
+
+  const res = await fetch(url, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      'x-organization-id': organizationId,
+    },
+    credentials: 'include',
+  });
+  return handleResponse<RepositoryListResponse>(res);
+}
+
+export async function apiConnectRepository(
+  organizationId: string,
+  repositoryId: string,
+): Promise<RepositoryConnectionDto> {
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/repositories/${repositoryId}/connect`,
+    {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+    },
+  );
+  return handleResponse<RepositoryConnectionDto>(res);
+}
+
+export async function apiDisconnectRepository(
+  organizationId: string,
+  repositoryId: string,
+): Promise<RepositoryConnectionDto> {
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/repositories/${repositoryId}/disconnect`,
+    {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+    },
+  );
+  return handleResponse<RepositoryConnectionDto>(res);
 }
