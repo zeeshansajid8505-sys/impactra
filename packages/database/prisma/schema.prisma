@@ -46,8 +46,9 @@ model User {
   sessions                Session[]
   passwordResetTokens     PasswordResetToken[]
   emailVerificationTokens EmailVerificationToken[]
-  sentInvitations         OrganizationInvitation[] @relation("InvitedByUser")
+  sentInvitations         OrganizationInvitation[]   @relation("InvitedByUser")
   githubInstallationStates GitHubInstallationState[]
+  repositoryIngestions    RepositoryIngestion[]
 
   @@map("users")
 }
@@ -64,6 +65,9 @@ model Organization {
   githubInstallations     GitHubInstallation[]
   githubInstallationStates GitHubInstallationState[]
   repositoryConnections   RepositoryConnection[]
+  repositoryIngestions    RepositoryIngestion[]
+  repositorySnapshots     RepositorySnapshot[]
+  digitalTwinSnapshots    DigitalTwinSnapshot[]
 
   @@map("organizations")
 }
@@ -230,6 +234,9 @@ model RepositoryConnection {
   updatedAt            DateTime            @updatedAt @map("updated_at")
   organization         Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   installation         GitHubInstallation  @relation(fields: [githubInstallationId], references: [githubInstallationId], onDelete: Cascade)
+  ingestions           RepositoryIngestion[]
+  snapshots            RepositorySnapshot[]
+  digitalTwins         DigitalTwinSnapshot[]
 
   @@unique([organizationId, githubRepositoryId])
   @@index([organizationId])
@@ -259,4 +266,184 @@ model GitHubWebhookDelivery {
   @@index([organizationId])
   @@index([receivedAt])
   @@map("github_webhook_deliveries")
+}
+
+/// Repository Ingestion Status enum.
+enum RepositoryIngestionStatus {
+  QUEUED
+  FETCHING
+  VALIDATING
+  INDEXING
+  BUILDING_TWIN
+  STORING
+  SUCCEEDED
+  FAILED
+}
+
+/// Digital Twin Node Type enum.
+enum DigitalTwinNodeType {
+  REPOSITORY
+  FILE
+  WORKSPACE_PACKAGE
+  EXTERNAL_DEPENDENCY
+  CONFIG
+}
+
+/// Digital Twin Edge Type enum.
+enum DigitalTwinEdgeType {
+  CONTAINS
+  IMPORTS
+  DECLARES_DEPENDENCY
+  WORKSPACE_DEPENDS_ON
+}
+
+/// Repository File Category enum.
+enum RepositoryFileCategory {
+  SOURCE_CODE
+  CONFIGURATION
+  DOCUMENTATION
+  TEST
+  BUILD_SYSTEM
+  DATA
+  BINARY
+  OTHER
+}
+
+/// Tracked ingestion job for a repository connection.
+model RepositoryIngestion {
+  id                     String                    @id @default(uuid())
+  organizationId         String                    @map("organization_id")
+  repositoryConnectionId String                    @map("repository_connection_id")
+  requestedByUserId      String?                   @map("requested_by_user_id")
+  targetRef              String                    @default("main") @map("target_ref")
+  commitSha              String?                   @map("commit_sha")
+  status                 RepositoryIngestionStatus @default(QUEUED)
+  stage                  String                    @default("QUEUED")
+  startedAt              DateTime?                 @map("started_at")
+  completedAt            DateTime?                 @map("completed_at")
+  failureCode            String?                   @map("failure_code")
+  failureMessage         String?                   @map("failure_message")
+  createdAt              DateTime                  @default(now()) @map("created_at")
+  updatedAt              DateTime                  @updatedAt @map("updated_at")
+  organization           Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  repositoryConnection   RepositoryConnection      @relation(fields: [repositoryConnectionId], references: [id], onDelete: Cascade)
+  requestedByUser        User?                     @relation(fields: [requestedByUserId], references: [id], onDelete: SetNull)
+  snapshots              RepositorySnapshot[]
+
+  @@index([organizationId])
+  @@index([repositoryConnectionId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("repository_ingestions")
+}
+
+/// Immutable snapshot representing a repository's source code at a specific commit.
+model RepositorySnapshot {
+  id                     String                    @id @default(uuid())
+  organizationId         String                    @map("organization_id")
+  repositoryConnectionId String                    @map("repository_connection_id")
+  ingestionId            String                    @map("ingestion_id")
+  commitSha              String                    @map("commit_sha")
+  ref                    String
+  sourceProvider         String                    @default("github") @map("source_provider")
+  parserVersion          String                    @default("digital-twin-parser-v1") @map("parser_version")
+  artifactKey            String?                   @map("artifact_key")
+  artifactSha256         String?                   @map("artifact_sha256")
+  sourceBytes            Int                       @default(0) @map("source_bytes")
+  fileCount              Int                       @default(0) @map("file_count")
+  createdAt              DateTime                  @default(now()) @map("created_at")
+  organization           Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  repositoryConnection   RepositoryConnection      @relation(fields: [repositoryConnectionId], references: [id], onDelete: Cascade)
+  ingestion              RepositoryIngestion       @relation(fields: [ingestionId], references: [id], onDelete: Cascade)
+  fileInventories        RepositoryFileInventory[]
+  digitalTwins           DigitalTwinSnapshot[]
+
+  @@unique([repositoryConnectionId, commitSha, parserVersion])
+  @@index([organizationId])
+  @@index([repositoryConnectionId])
+  @@index([commitSha])
+  @@map("repository_snapshots")
+}
+
+/// Detailed file metadata extracted during snapshot indexing.
+model RepositoryFileInventory {
+  id                   String                 @id @default(uuid())
+  repositorySnapshotId String                 @map("repository_snapshot_id")
+  path                 String
+  contentSha256        String                 @map("content_sha256")
+  byteSize             Int                    @map("byte_size")
+  language             String?
+  isBinary             Boolean                @default(false) @map("is_binary")
+  category             RepositoryFileCategory @default(SOURCE_CODE)
+  createdAt            DateTime               @default(now()) @map("created_at")
+  snapshot             RepositorySnapshot     @relation(fields: [repositorySnapshotId], references: [id], onDelete: Cascade)
+
+  @@unique([repositorySnapshotId, path])
+  @@index([repositorySnapshotId])
+  @@index([language])
+  @@index([category])
+  @@map("repository_file_inventories")
+}
+
+/// Architectural digital twin graph generated for a repository snapshot.
+model DigitalTwinSnapshot {
+  id                     String                 @id @default(uuid())
+  organizationId         String                 @map("organization_id")
+  repositoryConnectionId String                 @map("repository_connection_id")
+  repositorySnapshotId   String                 @unique @map("repository_snapshot_id")
+  twinVersion            String                 @default("digital-twin-v1") @map("twin_version")
+  nodeCount              Int                    @default(0) @map("node_count")
+  edgeCount              Int                    @default(0) @map("edge_count")
+  createdAt              DateTime               @default(now()) @map("created_at")
+  organization           Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  repositoryConnection   RepositoryConnection   @relation(fields: [repositoryConnectionId], references: [id], onDelete: Cascade)
+  repositorySnapshot     RepositorySnapshot     @relation(fields: [repositorySnapshotId], references: [id], onDelete: Cascade)
+  nodes                  DigitalTwinNode[]
+  edges                  DigitalTwinEdge[]
+
+  @@index([organizationId])
+  @@index([repositoryConnectionId])
+  @@map("digital_twin_snapshots")
+}
+
+/// Graph vertex representing a software entity within the Digital Twin.
+model DigitalTwinNode {
+  id                    String              @id @default(uuid())
+  digitalTwinSnapshotId String              @map("digital_twin_snapshot_id")
+  stableKey             String              @map("stable_key")
+  type                  DigitalTwinNodeType
+  name                  String
+  path                  String?
+  metadata              Json                @default("{}")
+  createdAt             DateTime            @default(now()) @map("created_at")
+  snapshot              DigitalTwinSnapshot @relation(fields: [digitalTwinSnapshotId], references: [id], onDelete: Cascade)
+  outgoingEdges         DigitalTwinEdge[]   @relation("SourceNode")
+  incomingEdges         DigitalTwinEdge[]   @relation("TargetNode")
+
+  @@unique([digitalTwinSnapshotId, stableKey])
+  @@index([digitalTwinSnapshotId])
+  @@index([type])
+  @@index([stableKey])
+  @@map("digital_twin_nodes")
+}
+
+/// Graph directed edge representing an architectural dependency or relationship.
+model DigitalTwinEdge {
+  id                    String              @id @default(uuid())
+  digitalTwinSnapshotId String              @map("digital_twin_snapshot_id")
+  sourceNodeId          String              @map("source_node_id")
+  targetNodeId          String              @map("target_node_id")
+  type                  DigitalTwinEdgeType
+  evidence              Json                @default("{}")
+  createdAt             DateTime            @default(now()) @map("created_at")
+  snapshot              DigitalTwinSnapshot @relation(fields: [digitalTwinSnapshotId], references: [id], onDelete: Cascade)
+  sourceNode            DigitalTwinNode     @relation("SourceNode", fields: [sourceNodeId], references: [id], onDelete: Cascade)
+  targetNode            DigitalTwinNode     @relation("TargetNode", fields: [targetNodeId], references: [id], onDelete: Cascade)
+
+  @@unique([digitalTwinSnapshotId, sourceNodeId, targetNodeId, type])
+  @@index([digitalTwinSnapshotId])
+  @@index([sourceNodeId])
+  @@index([targetNodeId])
+  @@index([type])
+  @@map("digital_twin_edges")
 }

@@ -9,7 +9,11 @@ import {
   ListBucketsCommand,
   HeadBucketCommand,
   CreateBucketCommand,
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
 } from '@aws-sdk/client-s3';
+import * as crypto from 'crypto';
 import { DependencyStatus } from '@impactra/shared';
 
 @Injectable()
@@ -113,6 +117,89 @@ export class StorageService implements OnModuleInit {
         status: 'unhealthy',
         error: msg,
       };
+    }
+  }
+
+  /**
+   * Stores a binary artifact into MinIO S3 and returns its key, sha256 checksum, and byte size.
+   */
+  async putObject(
+    key: string,
+    body: Buffer,
+    contentType = 'application/octet-stream',
+  ): Promise<{ key: string; sha256: string; byteSize: number }> {
+    const sha256 = crypto.createHash('sha256').update(body).digest('hex');
+    const byteSize = body.length;
+
+    if (!this.s3Client) {
+      this.logger.warn(`MinIO S3 client not initialized. Skipping putObject for ${key}`);
+      return { key, sha256, byteSize };
+    }
+
+    await this.ensureBucket();
+
+    await this.s3Client.send(
+      new PutObjectCommand({
+        Bucket: this.bucketName,
+        Key: key,
+        Body: body,
+        ContentType: contentType,
+        Metadata: {
+          sha256,
+        },
+      }),
+    );
+
+    return { key, sha256, byteSize };
+  }
+
+  /**
+   * Retrieves a binary artifact from MinIO S3. Returns null if key does not exist.
+   */
+  async getObject(key: string): Promise<Buffer | null> {
+    if (!this.s3Client) {
+      return null;
+    }
+
+    try {
+      const response = await this.s3Client.send(
+        new GetObjectCommand({
+          Bucket: this.bucketName,
+          Key: key,
+        }),
+      );
+
+      if (!response.Body) return null;
+      const byteArray = await (response.Body as any).transformToByteArray();
+      return Buffer.from(byteArray);
+    } catch (err: unknown) {
+      const isNotFound =
+        (err as { name?: string })?.name === 'NoSuchKey' ||
+        (err as { $metadata?: { httpStatusCode?: number } })?.$metadata?.httpStatusCode === 404;
+      if (isNotFound) return null;
+      throw err;
+    }
+  }
+
+  /**
+   * Deletes a binary artifact from MinIO S3.
+   */
+  async deleteObject(key: string): Promise<void> {
+    if (!this.s3Client) {
+      return;
+    }
+
+    try {
+      await this.s3Client.send(
+        new DeleteObjectCommand({
+          Bucket: this.bucketName,
+          Key: key,
+        }),
+      );
+      this.logger.log(`Deleted artifact from storage: ${key}`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`Failed to delete artifact ${key}: ${msg}`);
     }
   }
 }

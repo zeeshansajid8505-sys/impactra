@@ -50,6 +50,12 @@ export const envSchema = z.object({
   GITHUB_WEBHOOK_SECRET: z.string().optional(),
   GITHUB_API_URL: z.string().url().default('https://api.github.com'),
   GITHUB_WEB_URL: z.string().url().default('https://github.com'),
+  INGESTION_MAX_ARCHIVE_BYTES: z.coerce.number().int().positive().default(52428800), // 50MB
+  INGESTION_MAX_EXTRACTED_BYTES: z.coerce.number().int().positive().default(262144000), // 250MB
+  INGESTION_MAX_FILE_BYTES: z.coerce.number().int().positive().default(5242880), // 5MB
+  INGESTION_MAX_FILE_COUNT: z.coerce.number().int().positive().default(10000),
+  INGESTION_MAX_PATH_DEPTH: z.coerce.number().int().positive().default(20),
+  INGESTION_MAX_PATH_LENGTH: z.coerce.number().int().positive().default(255),
 }).transform((data) => ({
   ...data,
   COOKIE_SECURE:

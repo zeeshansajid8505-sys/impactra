@@ -20,6 +20,9 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.GITHUB_INSTALLATION_MANAGE,
     Permission.REPOSITORY_READ,
     Permission.REPOSITORY_MANAGE,
+    Permission.INGESTION_TRIGGER,
+    Permission.INGESTION_READ,
+    Permission.DIGITAL_TWIN_READ,
   ],
   ADMIN: [
     Permission.ORGANIZATION_READ,
@@ -34,6 +37,9 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.GITHUB_INSTALLATION_MANAGE,
     Permission.REPOSITORY_READ,
     Permission.REPOSITORY_MANAGE,
+    Permission.INGESTION_TRIGGER,
+    Permission.INGESTION_READ,
+    Permission.DIGITAL_TWIN_READ,
   ],
   ARCHITECT: [
     Permission.ORGANIZATION_READ,
@@ -41,6 +47,9 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.SESSION_MANAGE_SELF,
     Permission.GITHUB_INSTALLATION_READ,
     Permission.REPOSITORY_READ,
+    Permission.INGESTION_TRIGGER,
+    Permission.INGESTION_READ,
+    Permission.DIGITAL_TWIN_READ,
   ],
   SECURITY_ENGINEER: [
     Permission.ORGANIZATION_READ,
@@ -48,6 +57,8 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.SESSION_MANAGE_SELF,
     Permission.GITHUB_INSTALLATION_READ,
     Permission.REPOSITORY_READ,
+    Permission.INGESTION_READ,
+    Permission.DIGITAL_TWIN_READ,
   ],
   DEVELOPER: [
     Permission.ORGANIZATION_READ,
@@ -55,6 +66,9 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.SESSION_MANAGE_SELF,
     Permission.GITHUB_INSTALLATION_READ,
     Permission.REPOSITORY_READ,
+    Permission.INGESTION_TRIGGER,
+    Permission.INGESTION_READ,
+    Permission.DIGITAL_TWIN_READ,
   ],
   RELEASE_MANAGER: [
     Permission.ORGANIZATION_READ,
@@ -62,6 +76,9 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.SESSION_MANAGE_SELF,
     Permission.GITHUB_INSTALLATION_READ,
     Permission.REPOSITORY_READ,
+    Permission.INGESTION_TRIGGER,
+    Permission.INGESTION_READ,
+    Permission.DIGITAL_TWIN_READ,
   ],
   QA_ENGINEER: [
     Permission.ORGANIZATION_READ,
@@ -69,6 +86,8 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.SESSION_MANAGE_SELF,
     Permission.GITHUB_INSTALLATION_READ,
     Permission.REPOSITORY_READ,
+    Permission.INGESTION_READ,
+    Permission.DIGITAL_TWIN_READ,
   ],
   AUDITOR: [
     Permission.ORGANIZATION_READ,
@@ -76,6 +95,8 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.SESSION_MANAGE_SELF,
     Permission.GITHUB_INSTALLATION_READ,
     Permission.REPOSITORY_READ,
+    Permission.INGESTION_READ,
+    Permission.DIGITAL_TWIN_READ,
   ],
   VIEWER: [
     Permission.ORGANIZATION_READ,
@@ -83,6 +104,8 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.SESSION_MANAGE_SELF,
     Permission.GITHUB_INSTALLATION_READ,
     Permission.REPOSITORY_READ,
+    Permission.INGESTION_READ,
+    Permission.DIGITAL_TWIN_READ,
   ],
 };
 

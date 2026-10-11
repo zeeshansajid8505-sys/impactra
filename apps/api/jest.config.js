@@ -11,6 +11,7 @@ module.exports = {
   testEnvironment: 'node',
   setupFiles: ['<rootDir>/test/setup-env.ts'],
   moduleNameMapper: {
+    '^@octokit/auth-app$': '<rootDir>/test/mocks/octokit-auth-app.ts',
     '^@impactra/shared$': '<rootDir>/../../packages/shared/src/index.ts',
     '^@impactra/database$': '<rootDir>/../../packages/database/src/index.ts',
   },

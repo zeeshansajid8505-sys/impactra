@@ -18,3 +18,4 @@ allowBuilds:
   '@scarf/scarf@1.4.0': true
   'argon2': true
   'argon2@0.41.1': true
+  'msgpackr-extract': false

@@ -776,7 +776,12 @@ function RepositoriesContent() {
                           {/* Repo Name */}
                           <td className="px-4 py-3.5">
                             <div className="font-semibold text-[var(--text-primary)] flex items-center gap-1.5">
-                              <span>{repo.fullName}</span>
+                              <Link
+                                href={`/workspace/repositories/${repo.id}`}
+                                className="hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline transition-colors"
+                              >
+                                {repo.fullName}
+                              </Link>
                               <a
                                 href={repo.htmlUrl}
                                 target="_blank"
@@ -856,14 +861,30 @@ function RepositoriesContent() {
                           {/* Action Button */}
                           <td className="px-4 py-3.5 text-right">
                             {repo.connected ? (
-                              <button
-                                type="button"
-                                onClick={() => handleDisconnect(repo.id, repo.fullName)}
-                                disabled={isConnecting || !canManageRepositories}
-                                className="px-2.5 py-1 rounded-md text-[11px] font-medium border border-red-200 dark:border-red-900/60 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors disabled:opacity-50 cursor-pointer"
-                              >
-                                {isConnecting ? 'Disconnecting...' : 'Disconnect'}
-                              </button>
+                              <div className="flex items-center justify-end gap-1.5">
+                                <Link
+                                  href={`/workspace/repositories/${repo.id}/digital-twin`}
+                                  className="px-2 py-1 rounded-md text-[11px] font-semibold bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors inline-flex items-center gap-1 shadow-xs"
+                                  title="Open Software Digital Twin"
+                                >
+                                  <Layers className="w-3 h-3" />
+                                  <span>Twin</span>
+                                </Link>
+                                <Link
+                                  href={`/workspace/repositories/${repo.id}`}
+                                  className="px-2 py-1 rounded-md text-[11px] font-medium border border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-colors"
+                                >
+                                  Details
+                                </Link>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDisconnect(repo.id, repo.fullName)}
+                                  disabled={isConnecting || !canManageRepositories}
+                                  className="px-2 py-1 rounded-md text-[11px] font-medium border border-red-200 dark:border-red-900/60 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors disabled:opacity-50 cursor-pointer"
+                                >
+                                  {isConnecting ? 'Disconnecting...' : 'Disconnect'}
+                                </button>
+                              </div>
                             ) : (
                               <button
                                 type="button"

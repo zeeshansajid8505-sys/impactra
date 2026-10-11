@@ -12,4 +12,7 @@ export enum Permission {
   GITHUB_INSTALLATION_MANAGE = 'github_installation.manage',
   REPOSITORY_READ = 'repository.read',
   REPOSITORY_MANAGE = 'repository.manage',
+  INGESTION_TRIGGER = 'ingestion.trigger',
+  INGESTION_READ = 'ingestion.read',
+  DIGITAL_TWIN_READ = 'digital_twin.read',
 }

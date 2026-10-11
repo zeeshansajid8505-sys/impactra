@@ -21,6 +21,13 @@ import {
   RepositoryConnectionDto,
   RepositoryListResponse,
   RepositorySyncResponse,
+  TriggerIngestionRequest,
+  RepositoryIngestionDto,
+  RepositoryIngestionListResponse,
+  RepositorySnapshotDto,
+  DigitalTwinSummaryResponse,
+  DigitalTwinNodesResponse,
+  DigitalTwinEdgesResponse,
 } from '@impactra/shared';
 
 export function getApiBaseUrl(): string {
@@ -434,4 +441,162 @@ export async function apiDisconnectRepository(
     },
   );
   return handleResponse<RepositoryConnectionDto>(res);
+}
+
+// ==========================================
+// Phase 05: Repository Ingestion & Digital Twin API
+// ==========================================
+
+export async function apiTriggerIngestion(
+  organizationId: string,
+  repositoryId: string,
+  data?: TriggerIngestionRequest,
+): Promise<RepositoryIngestionDto> {
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/repositories/${repositoryId}/ingestions`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      body: JSON.stringify(data || {}),
+      credentials: 'include',
+    },
+  );
+  return handleResponse<RepositoryIngestionDto>(res);
+}
+
+export async function apiListIngestions(
+  organizationId: string,
+  repositoryId: string,
+  query?: { status?: string; page?: number; limit?: number },
+): Promise<RepositoryIngestionListResponse> {
+  const params = new URLSearchParams();
+  if (query?.status) params.set('status', query.status);
+  if (query?.page) params.set('page', String(query.page));
+  if (query?.limit) params.set('limit', String(query.limit));
+  const qs = params.toString() ? `?${params.toString()}` : '';
+
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/repositories/${repositoryId}/ingestions${qs}`,
+    {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+    },
+  );
+  return handleResponse<RepositoryIngestionListResponse>(res);
+}
+
+export async function apiGetIngestion(
+  organizationId: string,
+  repositoryId: string,
+  ingestionId: string,
+): Promise<RepositoryIngestionDto> {
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/repositories/${repositoryId}/ingestions/${ingestionId}`,
+    {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+    },
+  );
+  return handleResponse<RepositoryIngestionDto>(res);
+}
+
+export async function apiGetLatestSnapshot(
+  organizationId: string,
+  repositoryId: string,
+): Promise<RepositorySnapshotDto> {
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/repositories/${repositoryId}/snapshots/latest`,
+    {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+    },
+  );
+  return handleResponse<RepositorySnapshotDto>(res);
+}
+
+export async function apiGetLatestDigitalTwin(
+  organizationId: string,
+  repositoryId: string,
+): Promise<DigitalTwinSummaryResponse> {
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/repositories/${repositoryId}/digital-twin/latest`,
+    {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+    },
+  );
+  return handleResponse<DigitalTwinSummaryResponse>(res);
+}
+
+export async function apiListTwinNodes(
+  organizationId: string,
+  repositoryId: string,
+  query?: { type?: string; search?: string; page?: number; limit?: number },
+): Promise<DigitalTwinNodesResponse> {
+  const params = new URLSearchParams();
+  if (query?.type) params.set('type', query.type);
+  if (query?.search) params.set('search', query.search);
+  if (query?.page) params.set('page', String(query.page));
+  if (query?.limit) params.set('limit', String(query.limit));
+  const qs = params.toString() ? `?${params.toString()}` : '';
+
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/repositories/${repositoryId}/digital-twin/latest/nodes${qs}`,
+    {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+    },
+  );
+  return handleResponse<DigitalTwinNodesResponse>(res);
+}
+
+export async function apiListTwinEdges(
+  organizationId: string,
+  repositoryId: string,
+  query?: { type?: string; sourceNodeId?: string; targetNodeId?: string; page?: number; limit?: number },
+): Promise<DigitalTwinEdgesResponse> {
+  const params = new URLSearchParams();
+  if (query?.type) params.set('type', query.type);
+  if (query?.sourceNodeId) params.set('sourceNodeId', query.sourceNodeId);
+  if (query?.targetNodeId) params.set('targetNodeId', query.targetNodeId);
+  if (query?.page) params.set('page', String(query.page));
+  if (query?.limit) params.set('limit', String(query.limit));
+  const qs = params.toString() ? `?${params.toString()}` : '';
+
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/repositories/${repositoryId}/digital-twin/latest/edges${qs}`,
+    {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+    },
+  );
+  return handleResponse<DigitalTwinEdgesResponse>(res);
 }
