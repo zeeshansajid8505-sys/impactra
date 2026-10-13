@@ -19,7 +19,8 @@ COPY apps/ ./apps/
 # Install all dependencies with strict lockfile
 RUN pnpm install --frozen-lockfile
 
-# Build database workspace package and generate Prisma Client
+# Build shared and database workspace packages
+RUN pnpm --filter @impactra/shared build
 RUN pnpm --filter @impactra/database build
 
 # Build NestJS API

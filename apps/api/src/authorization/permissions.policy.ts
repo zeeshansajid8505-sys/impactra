@@ -23,6 +23,8 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.INGESTION_TRIGGER,
     Permission.INGESTION_READ,
     Permission.DIGITAL_TWIN_READ,
+    Permission.CHANGE_READ,
+    Permission.CHANGE_SYNC,
   ],
   ADMIN: [
     Permission.ORGANIZATION_READ,
@@ -40,6 +42,8 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.INGESTION_TRIGGER,
     Permission.INGESTION_READ,
     Permission.DIGITAL_TWIN_READ,
+    Permission.CHANGE_READ,
+    Permission.CHANGE_SYNC,
   ],
   ARCHITECT: [
     Permission.ORGANIZATION_READ,
@@ -50,6 +54,8 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.INGESTION_TRIGGER,
     Permission.INGESTION_READ,
     Permission.DIGITAL_TWIN_READ,
+    Permission.CHANGE_READ,
+    Permission.CHANGE_SYNC,
   ],
   SECURITY_ENGINEER: [
     Permission.ORGANIZATION_READ,
@@ -59,6 +65,7 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.REPOSITORY_READ,
     Permission.INGESTION_READ,
     Permission.DIGITAL_TWIN_READ,
+    Permission.CHANGE_READ,
   ],
   DEVELOPER: [
     Permission.ORGANIZATION_READ,
@@ -69,6 +76,8 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.INGESTION_TRIGGER,
     Permission.INGESTION_READ,
     Permission.DIGITAL_TWIN_READ,
+    Permission.CHANGE_READ,
+    Permission.CHANGE_SYNC,
   ],
   RELEASE_MANAGER: [
     Permission.ORGANIZATION_READ,
@@ -79,6 +88,8 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.INGESTION_TRIGGER,
     Permission.INGESTION_READ,
     Permission.DIGITAL_TWIN_READ,
+    Permission.CHANGE_READ,
+    Permission.CHANGE_SYNC,
   ],
   QA_ENGINEER: [
     Permission.ORGANIZATION_READ,
@@ -88,6 +99,7 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.REPOSITORY_READ,
     Permission.INGESTION_READ,
     Permission.DIGITAL_TWIN_READ,
+    Permission.CHANGE_READ,
   ],
   AUDITOR: [
     Permission.ORGANIZATION_READ,
@@ -97,6 +109,7 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.REPOSITORY_READ,
     Permission.INGESTION_READ,
     Permission.DIGITAL_TWIN_READ,
+    Permission.CHANGE_READ,
   ],
   VIEWER: [
     Permission.ORGANIZATION_READ,
@@ -106,6 +119,7 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.REPOSITORY_READ,
     Permission.INGESTION_READ,
     Permission.DIGITAL_TWIN_READ,
+    Permission.CHANGE_READ,
   ],
 };
 

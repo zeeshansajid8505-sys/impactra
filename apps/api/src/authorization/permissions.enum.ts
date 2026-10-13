@@ -15,4 +15,6 @@ export enum Permission {
   INGESTION_TRIGGER = 'ingestion.trigger',
   INGESTION_READ = 'ingestion.read',
   DIGITAL_TWIN_READ = 'digital_twin.read',
+  CHANGE_READ = 'change.read',
+  CHANGE_SYNC = 'change.sync',
 }

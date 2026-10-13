@@ -30,6 +30,22 @@ import {
   RepositoryConnectionDto,
 } from '@impactra/shared';
 
+const NODE_TYPE_OPTIONS: Array<{ label: string; value: DigitalTwinNodeTypeEnum | 'ALL' }> = [
+  { label: 'All', value: 'ALL' },
+  { label: 'Workspace Package', value: DigitalTwinNodeTypeEnum.WORKSPACE_PACKAGE },
+  { label: 'File', value: DigitalTwinNodeTypeEnum.FILE },
+  { label: 'External Dependency', value: DigitalTwinNodeTypeEnum.EXTERNAL_DEPENDENCY },
+  { label: 'Config', value: DigitalTwinNodeTypeEnum.CONFIG },
+];
+
+const EDGE_TYPE_OPTIONS: Array<{ label: string; value: DigitalTwinEdgeType | 'ALL' }> = [
+  { label: 'All', value: 'ALL' },
+  { label: 'Imports', value: DigitalTwinEdgeType.IMPORTS },
+  { label: 'Contains', value: DigitalTwinEdgeType.CONTAINS },
+  { label: 'Declares Dependency', value: DigitalTwinEdgeType.DECLARES_DEPENDENCY },
+  { label: 'Workspace Depends On', value: DigitalTwinEdgeType.WORKSPACE_DEPENDS_ON },
+];
+
 export default function DigitalTwinPage({
   params,
 }: {
@@ -53,34 +69,64 @@ export default function DigitalTwinPage({
   const [edgeTypeFilter, setEdgeTypeFilter] = useState<DigitalTwinEdgeType | 'ALL'>('ALL');
   const [searchTerm, setSearchTerm] = useState<string>('');
 
-  const loadTwinData = useCallback(async () => {
+  useEffect(() => {
     if (!organizationId || !repositoryId) return;
+    let cancelled = false;
 
-    try {
-      setLoading(true);
-
-      // Load repo metadata
-      const repoRes = await apiListRepositories(organizationId, { limit: 100 });
-      const found = repoRes.repositories.find((r) => r.id === repositoryId);
-      if (found) setRepository(found);
-
-      // Load Twin Summary
-      const summary = await apiGetLatestDigitalTwin(organizationId, repositoryId);
-      setTwinSummary(summary);
-
-      // Load Nodes
-      const nodesRes = await apiListTwinNodes(organizationId, repositoryId, {
+    Promise.all([
+      apiListRepositories(organizationId, { limit: 100 }).catch(() => ({ repositories: [] })),
+      apiGetLatestDigitalTwin(organizationId, repositoryId).catch(() => null),
+      apiListTwinNodes(organizationId, repositoryId, {
         limit: 100,
         type: nodeTypeFilter === 'ALL' ? undefined : nodeTypeFilter,
         search: searchTerm.trim() || undefined,
-      });
-      setNodes(nodesRes.nodes);
-
-      // Load Edges
-      const edgesRes = await apiListTwinEdges(organizationId, repositoryId, {
+      }).catch(() => ({ nodes: [] })),
+      apiListTwinEdges(organizationId, repositoryId, {
         limit: 100,
         type: edgeTypeFilter === 'ALL' ? undefined : edgeTypeFilter,
+      }).catch(() => ({ edges: [] })),
+    ])
+      .then(([repoRes, summary, nodesRes, edgesRes]) => {
+        if (cancelled) return;
+        const found = repoRes.repositories.find((r) => r.id === repositoryId);
+        if (found) setRepository(found);
+        setTwinSummary(summary);
+        setNodes(nodesRes.nodes);
+        setEdges(edgesRes.edges);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setTwinSummary(null);
+        setLoading(false);
       });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [organizationId, repositoryId, nodeTypeFilter, edgeTypeFilter, searchTerm]);
+
+  const handleRefresh = useCallback(async () => {
+    if (!organizationId || !repositoryId) return;
+    setLoading(true);
+    try {
+      const [repoRes, summary, nodesRes, edgesRes] = await Promise.all([
+        apiListRepositories(organizationId, { limit: 100 }).catch(() => ({ repositories: [] })),
+        apiGetLatestDigitalTwin(organizationId, repositoryId).catch(() => null),
+        apiListTwinNodes(organizationId, repositoryId, {
+          limit: 100,
+          type: nodeTypeFilter === 'ALL' ? undefined : nodeTypeFilter,
+          search: searchTerm.trim() || undefined,
+        }).catch(() => ({ nodes: [] })),
+        apiListTwinEdges(organizationId, repositoryId, {
+          limit: 100,
+          type: edgeTypeFilter === 'ALL' ? undefined : edgeTypeFilter,
+        }).catch(() => ({ edges: [] })),
+      ]);
+      const found = repoRes.repositories.find((r) => r.id === repositoryId);
+      if (found) setRepository(found);
+      setTwinSummary(summary);
+      setNodes(nodesRes.nodes);
       setEdges(edgesRes.edges);
     } catch {
       setTwinSummary(null);
@@ -88,10 +134,6 @@ export default function DigitalTwinPage({
       setLoading(false);
     }
   }, [organizationId, repositoryId, nodeTypeFilter, edgeTypeFilter, searchTerm]);
-
-  useEffect(() => {
-    loadTwinData();
-  }, [loadTwinData]);
 
   if (loading && !twinSummary) {
     return (
@@ -148,7 +190,7 @@ export default function DigitalTwinPage({
         </Link>
         <button
           type="button"
-          onClick={loadTwinData}
+          onClick={handleRefresh}
           className="p-1.5 rounded-lg border border-[var(--border)] hover:bg-[var(--surface-raised)] text-[var(--text-secondary)] transition-colors"
           title="Refresh Digital Twin"
         >
@@ -295,22 +337,20 @@ export default function DigitalTwinPage({
               <div className="flex items-center gap-2 text-xs">
                 <Filter className="w-3.5 h-3.5 text-[var(--text-muted)]" />
                 <span className="text-[var(--text-muted)] text-[11px]">Type:</span>
-                {(['ALL', 'WORKSPACE_PACKAGE', 'FILE', 'EXTERNAL_DEPENDENCY', 'CONFIG'] as const).map(
-                  (type) => (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() => setNodeTypeFilter(type)}
-                      className={`px-2 py-1 rounded text-[11px] font-medium transition-colors cursor-pointer ${
-                        nodeTypeFilter === type
-                          ? 'bg-indigo-600 text-white'
-                          : 'bg-[var(--surface-raised)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                      }`}
-                    >
-                      {type === 'ALL' ? 'All' : type}
-                    </button>
-                  ),
-                )}
+                {NODE_TYPE_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setNodeTypeFilter(opt.value)}
+                    className={`px-2 py-1 rounded text-[11px] font-medium transition-colors cursor-pointer ${
+                      nodeTypeFilter === opt.value
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-[var(--surface-raised)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -366,22 +406,20 @@ export default function DigitalTwinPage({
             <div className="flex items-center gap-2 text-xs">
               <Filter className="w-3.5 h-3.5 text-[var(--text-muted)]" />
               <span className="text-[var(--text-muted)] text-[11px]">Edge Type:</span>
-              {(['ALL', 'IMPORTS', 'CONTAINS', 'DECLARES_DEPENDENCY', 'WORKSPACE_DEPENDS_ON'] as const).map(
-                (type) => (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() => setEdgeTypeFilter(type)}
-                    className={`px-2 py-1 rounded text-[11px] font-medium transition-colors cursor-pointer ${
-                      edgeTypeFilter === type
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-[var(--surface-raised)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                    }`}
-                  >
-                    {type === 'ALL' ? 'All' : type}
-                  </button>
-                ),
-              )}
+              {EDGE_TYPE_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setEdgeTypeFilter(opt.value)}
+                  className={`px-2 py-1 rounded text-[11px] font-medium transition-colors cursor-pointer ${
+                    edgeTypeFilter === opt.value
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-[var(--surface-raised)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
 
             <div className="border border-[var(--border)] rounded-xl overflow-hidden">

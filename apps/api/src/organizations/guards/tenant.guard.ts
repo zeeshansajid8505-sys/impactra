@@ -20,10 +20,20 @@ export class TenantGuard implements CanActivate {
     }
 
     // 1. Extract candidate organization identifier from route param or trusted header
-    const paramOrgId = request.params?.organizationId;
-    const headerOrgId = request.headers['x-organization-id'] as string | undefined;
+    const paramOrgId = (request.params?.organizationId || request.params?.orgId) as
+      | string
+      | undefined;
+    const rawHeader = request.headers['x-organization-id'] as string | undefined;
+    const headerOrgId = rawHeader ? rawHeader.trim() : undefined;
 
-    const orgIdCandidate = paramOrgId || (headerOrgId ? headerOrgId.trim() : null);
+    // Cross-tenant mismatch defense: route param and x-organization-id header must agree
+    if (paramOrgId && headerOrgId && paramOrgId !== headerOrgId) {
+      throw new ForbiddenException(
+        'Tenant context mismatch between route parameter and header.',
+      );
+    }
+
+    const orgIdCandidate = paramOrgId || headerOrgId || null;
 
     if (!orgIdCandidate) {
       throw new BadRequestException(

@@ -42,5 +42,11 @@ export default registerAs('app', () => {
       maxPathDepth: parseInt(process.env.INGESTION_MAX_PATH_DEPTH || '20', 10),
       maxPathLength: parseInt(process.env.INGESTION_MAX_PATH_LENGTH || '255', 10),
     },
+    changes: {
+      maxFiles: parseInt(process.env.CHANGE_MAX_FILES || '1000', 10),
+      maxPatchBytesPerFile: parseInt(process.env.CHANGE_MAX_PATCH_BYTES_PER_FILE || '262144', 10),
+      maxTotalPatchBytes: parseInt(process.env.CHANGE_MAX_TOTAL_PATCH_BYTES || '10485760', 10),
+      analysisTimeoutSeconds: parseInt(process.env.CHANGE_ANALYSIS_TIMEOUT_SECONDS || '300', 10),
+    },
   };
 });

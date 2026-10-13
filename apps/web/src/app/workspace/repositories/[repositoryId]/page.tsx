@@ -17,6 +17,8 @@ import {
   FileCode,
   HardDrive,
   Cpu,
+  GitPullRequest,
+  ArrowRight,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import {
@@ -24,11 +26,14 @@ import {
   apiListIngestions,
   apiTriggerIngestion,
   apiGetLatestSnapshot,
+  apiListChangeSets,
+  apiSyncPullRequest,
 } from '@/lib/api-client';
 import {
   RepositoryConnectionDto,
   RepositoryIngestionDto,
   RepositorySnapshotDto,
+  ChangeSetDto,
 } from '@impactra/shared';
 
 export default function RepositoryDetailPage({
@@ -49,6 +54,9 @@ export default function RepositoryDetailPage({
   const [repository, setRepository] = useState<RepositoryConnectionDto | null>(null);
   const [ingestions, setIngestions] = useState<RepositoryIngestionDto[]>([]);
   const [latestSnapshot, setLatestSnapshot] = useState<RepositorySnapshotDto | null>(null);
+  const [changes, setChanges] = useState<ChangeSetDto[]>([]);
+  const [syncPrNumber, setSyncPrNumber] = useState<string>('');
+  const [syncingPr, setSyncingPr] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [triggering, setTriggering] = useState<boolean>(false);
   const [targetRef, setTargetRef] = useState<string>('');
@@ -78,6 +86,14 @@ export default function RepositoryDetailPage({
       } catch {
         setLatestSnapshot(null);
       }
+
+      // 4. Fetch change sets
+      try {
+        const changeRes = await apiListChangeSets(organizationId, { repositoryId, limit: 10 });
+        setChanges(changeRes.items);
+      } catch {
+        setChanges([]);
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       setFeedback({ type: 'error', message: `Failed to load repository details: ${msg}` });
@@ -87,8 +103,35 @@ export default function RepositoryDetailPage({
   }, [organizationId, repositoryId]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (!organizationId || !repositoryId) return;
+    let cancelled = false;
+
+    Promise.all([
+      apiListRepositories(organizationId, { limit: 100 }).catch(() => ({ repositories: [] })),
+      apiListIngestions(organizationId, repositoryId, { limit: 50 }).catch(() => ({ ingestions: [] })),
+      apiGetLatestSnapshot(organizationId, repositoryId).catch(() => null),
+      apiListChangeSets(organizationId, { repositoryId, limit: 10 }).catch(() => ({ items: [] })),
+    ])
+      .then(([repoRes, ingRes, snapRes, changeRes]) => {
+        if (cancelled) return;
+        const found = repoRes.repositories.find((r) => r.id === repositoryId);
+        if (found) setRepository(found);
+        setIngestions(ingRes.ingestions);
+        setLatestSnapshot(snapRes);
+        setChanges(changeRes.items);
+        setLoading(false);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        const msg = err instanceof Error ? err.message : String(err);
+        setFeedback({ type: 'error', message: `Failed to load repository details: ${msg}` });
+        setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [organizationId, repositoryId]);
 
   // Safe polling: runs only while an ingestion job is actively progressing
   const hasActiveJob = useMemo(() => {
@@ -132,6 +175,25 @@ export default function RepositoryDetailPage({
       setFeedback({ type: 'error', message: msg });
     } finally {
       setTriggering(false);
+    }
+  };
+
+  const handleSyncPr = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const num = parseInt(syncPrNumber, 10);
+    if (isNaN(num) || num <= 0 || !organizationId) return;
+    try {
+      setSyncingPr(true);
+      setFeedback(null);
+      await apiSyncPullRequest(organizationId, repositoryId, num);
+      setFeedback({ type: 'success', message: `Pull Request #${num} sync initiated!` });
+      setSyncPrNumber('');
+      await loadData();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setFeedback({ type: 'error', message: `Failed to sync PR #${num}: ${msg}` });
+    } finally {
+      setSyncingPr(false);
     }
   };
 
@@ -424,6 +486,114 @@ export default function RepositoryDetailPage({
                     </td>
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Pull Requests & Change Intelligence Section */}
+      <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h2 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
+              <GitPullRequest className="w-4 h-4 text-indigo-500" />
+              <span>Pull Requests & Change Intelligence</span>
+            </h2>
+            <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+              Tracked pull requests, immutable commit-pair revisions, and digital twin impact mappings.
+            </p>
+          </div>
+
+          {canTrigger && (
+            <form onSubmit={handleSyncPr} className="flex items-center gap-2">
+              <input
+                type="number"
+                min="1"
+                placeholder="PR # (e.g. 42)"
+                value={syncPrNumber}
+                onChange={(e) => setSyncPrNumber(e.target.value)}
+                className="w-32 px-3 py-1.5 text-xs font-mono rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+              <button
+                type="submit"
+                disabled={syncingPr || !syncPrNumber}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition-colors disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${syncingPr ? 'animate-spin' : ''}`} />
+                <span>{syncingPr ? 'Syncing...' : 'Sync PR'}</span>
+              </button>
+            </form>
+          )}
+        </div>
+
+        {changes.length === 0 ? (
+          <div className="text-center py-8 text-xs text-[var(--text-muted)] border border-dashed border-[var(--border)] rounded-lg">
+            No pull requests recorded for this repository yet. Enter a PR number above or send webhooks via GitHub.
+          </div>
+        ) : (
+          <div className="overflow-x-auto border border-[var(--border)] rounded-lg">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="border-b border-[var(--border)] bg-[var(--surface-raised)] text-[var(--text-muted)] font-medium">
+                  <th className="px-4 py-3">Pull Request</th>
+                  <th className="px-4 py-3">Branches</th>
+                  <th className="px-4 py-3">State</th>
+                  <th className="px-4 py-3">Analysis</th>
+                  <th className="px-4 py-3">Diff / Twin</th>
+                  <th className="px-4 py-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--border)]">
+                {changes.map((change) => {
+                  const rev = change.latestRevision;
+                  return (
+                    <tr key={change.id} className="hover:bg-[var(--surface-raised)]/50 transition-colors">
+                      <td className="px-4 py-3 font-semibold text-[var(--text-primary)]">
+                        <Link
+                          href={`/workspace/changes/${change.id}`}
+                          className="hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1.5"
+                        >
+                          <span className="font-mono text-[var(--text-muted)]">#{change.pullRequestNumber}</span>
+                          <span className="truncate max-w-xs">{change.title}</span>
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3 font-mono text-[11px] text-[var(--text-muted)]">
+                        {change.headRef} → {change.baseRef}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[var(--surface-raised)] border border-[var(--border)]">
+                          {change.isMerged ? 'merged' : change.state}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {rev ? (
+                          <span className="font-mono text-[11px] text-indigo-600 dark:text-indigo-400">
+                            {rev.status}
+                          </span>
+                        ) : (
+                          <span className="text-[var(--text-muted)]">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 font-mono text-[11px] text-[var(--text-secondary)]">
+                        {rev ? (
+                          <span>+{rev.filesAdded} ~{rev.filesModified} -{rev.filesDeleted}</span>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Link
+                          href={`/workspace/changes/${change.id}`}
+                          className="inline-flex items-center gap-1 text-[11px] font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
+                        >
+                          <span>View</span>
+                          <ArrowRight className="w-3 h-3" />
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { DatabaseModule } from '../database/database.module';
 import { StorageModule } from '../storage/storage.module';
 import { CacheModule } from '../cache/cache.module';
@@ -25,7 +25,7 @@ import { OrganizationRepositoryIngestionController } from './controllers/organiz
     CacheModule,
     SessionsModule,
     OrganizationsModule,
-    GithubModule,
+    forwardRef(() => GithubModule),
     BullModule.registerQueue({
       name: 'repository-ingestion',
     }),

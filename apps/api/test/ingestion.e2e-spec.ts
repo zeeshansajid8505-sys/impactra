@@ -10,6 +10,7 @@ import { DatabaseService } from '../src/database/database.service';
 import { CacheService } from '../src/cache/cache.service';
 import { StorageService } from '../src/storage/storage.service';
 import { RepositorySourceProvider } from '../src/ingestion/services/repository-source-provider.service';
+import { IngestionQueueService } from '../src/ingestion/queue/ingestion-queue.service';
 import { AllExceptionsFilter } from '../src/common/filters/http-exception.filter';
 import { AppValidationPipe } from '../src/common/pipes/validation.pipe';
 
@@ -70,6 +71,7 @@ describe('Repository Ingestion & Software Digital Twin Foundation (E2E)', () => 
   const orgId1 = 'org-ingest-1';
   const orgId2 = 'org-ingest-2';
   const repoId1 = 'repo-ingest-1';
+  const repoIdFixture = 'repo-ingest-fixture';
   const repoId2 = 'repo-ingest-2';
 
   let ownerCookie = '';
@@ -168,6 +170,29 @@ describe('Repository Ingestion & Software Digital Twin Foundation (E2E)', () => 
         createdAt: new Date(),
         updatedAt: new Date(),
       },
+      {
+        id: repoIdFixture,
+        organizationId: orgId1,
+        githubInstallationId: 'inst-1',
+        githubRepositoryId: 'gh-repo-fixture',
+        ownerLogin: 'impactra',
+        name: 'fixture-project',
+        fullName: 'impactra/fixture-project',
+        defaultBranch: 'main',
+        isPrivate: false,
+        visibility: 'public',
+        archived: false,
+        disabled: false,
+        fork: false,
+        htmlUrl: 'https://github.com/impactra/fixture-project',
+        available: true,
+        connected: true,
+        connectedAt: new Date(),
+        disconnectedAt: null,
+        lastSyncedAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
     );
 
     // Create sessions
@@ -197,6 +222,113 @@ describe('Repository Ingestion & Software Digital Twin Foundation (E2E)', () => 
       },
     );
 
+    // Pre-seed immutable SUCCEEDED ingestion, snapshot, inventories, and digital twin for repoIdFixture
+    const ingFixture = {
+      id: 'ing-fixture',
+      organizationId: orgId1,
+      repositoryConnectionId: repoIdFixture,
+      requestedByUserId: owner.id,
+      targetRef: 'main',
+      commitSha: '97640defa1234567890abcdef1234567890abcde',
+      status: 'SUCCEEDED',
+      stage: 'COMPLETED',
+      startedAt: new Date(),
+      completedAt: new Date(),
+      failureCode: null,
+      failureMessage: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    ingestions.push(ingFixture);
+
+    const snapFixture = {
+      id: 'snap-fixture',
+      organizationId: orgId1,
+      repositoryConnectionId: repoIdFixture,
+      ingestionId: ingFixture.id,
+      commitSha: '97640defa1234567890abcdef1234567890abcde',
+      ref: 'refs/heads/main',
+      sourceProvider: 'github',
+      parserVersion: '1.0.0',
+      artifactKey: 'artifacts/repo-ingest-fixture/snap-fixture.tar.gz',
+      artifactSha256: 'sha256-fixture-artifact',
+      sourceBytes: 1000,
+      fileCount: 2,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    snapshots.push(snapFixture);
+
+    const inv1 = {
+      id: 'inv-fixture-1',
+      repositorySnapshotId: snapFixture.id,
+      path: 'package.json',
+      contentSha256: 'sha-pkg-json',
+      byteSize: 100,
+      language: null,
+      isBinary: false,
+      category: 'SOURCE_CODE',
+      createdAt: new Date(),
+    };
+    const inv2 = {
+      id: 'inv-fixture-2',
+      repositorySnapshotId: snapFixture.id,
+      path: 'src/index.ts',
+      contentSha256: 'sha-idx-ts',
+      byteSize: 200,
+      language: 'TypeScript',
+      isBinary: false,
+      category: 'SOURCE_CODE',
+      createdAt: new Date(),
+    };
+    inventories.push(inv1, inv2);
+
+    const twinFixture = {
+      id: 'twin-fixture',
+      organizationId: orgId1,
+      repositoryConnectionId: repoIdFixture,
+      repositorySnapshotId: snapFixture.id,
+      twinVersion: '1.0.0',
+      nodeCount: 2,
+      edgeCount: 1,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    digitalTwins.push(twinFixture);
+
+    const tn1 = {
+      id: 'tn-fixture-1',
+      digitalTwinSnapshotId: twinFixture.id,
+      stableKey: 'file:src/index.ts',
+      type: 'FILE',
+      name: 'index.ts',
+      path: 'src/index.ts',
+      metadata: {},
+      createdAt: new Date(),
+    };
+    const tn2 = {
+      id: 'tn-fixture-2',
+      digitalTwinSnapshotId: twinFixture.id,
+      stableKey: 'pkg:@impactra/sample',
+      type: 'WORKSPACE_PACKAGE',
+      name: '@impactra/sample',
+      path: 'package.json',
+      metadata: {},
+      createdAt: new Date(),
+    };
+    twinNodes.push(tn1, tn2);
+
+    const te1 = {
+      id: 'te-fixture-1',
+      digitalTwinSnapshotId: twinFixture.id,
+      sourceNodeId: tn1.id,
+      targetNodeId: tn2.id,
+      type: 'IMPORTS',
+      evidence: {},
+      createdAt: new Date(),
+    };
+    twinEdges.push(te1);
+
     ownerCookie = `impactra_session=${ownerToken}`;
     viewerCookie = `impactra_session=${viewerToken}`;
 
@@ -224,13 +356,12 @@ describe('Repository Ingestion & Software Digital Twin Foundation (E2E)', () => 
         },
         organizationMembership: {
           findUnique: jest.fn(async ({ where }) => {
-            return (
-              memberships.find(
-                (m) =>
-                  m.organizationId === where.organizationId_userId?.organizationId &&
-                  m.userId === where.organizationId_userId?.userId,
-              ) || null
-            );
+            const orgId = where.organizationId_userId?.organizationId || where.organizationId;
+            const userId = where.organizationId_userId?.userId || where.userId;
+            const m = memberships.find((item) => item.organizationId === orgId && item.userId === userId);
+            if (!m) return null;
+            const org = organizations.find((o) => o.id === m.organizationId);
+            return { ...m, organization: org };
           }),
         },
         repositoryConnection: {
@@ -406,6 +537,10 @@ describe('Repository Ingestion & Software Digital Twin Foundation (E2E)', () => 
       ping: jest.fn().mockResolvedValue({ status: 'healthy' }),
     };
 
+    const mockQueueService = {
+      enqueue: jest.fn().mockResolvedValue(undefined),
+    };
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     })
@@ -415,6 +550,8 @@ describe('Repository Ingestion & Software Digital Twin Foundation (E2E)', () => 
       .useValue(mockCacheService)
       .overrideProvider(StorageService)
       .useValue(mockStorageService)
+      .overrideProvider(IngestionQueueService)
+      .useValue(mockQueueService)
       .compile();
 
     app = moduleFixture.createNestApplication();
@@ -482,11 +619,12 @@ describe('Repository Ingestion & Software Digital Twin Foundation (E2E)', () => 
 
   describe('Ingestion Lifecycle & Digital Twin Endpoints', () => {
     it('returns latest repository snapshot with file inventory', async () => {
-      // Wait for queue processing to complete
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      // Invariant assertion: verify seeded fixture is present
+      expect(repositories.some((r) => r.id === repoIdFixture)).toBe(true);
+      expect(snapshots.some((s) => s.repositoryConnectionId === repoIdFixture)).toBe(true);
 
       const res = await request(app.getHttpServer())
-        .get(`/organizations/${orgId1}/repositories/${repoId1}/snapshots/latest`)
+        .get(`/organizations/${orgId1}/repositories/${repoIdFixture}/snapshots/latest`)
         .set('Cookie', ownerCookie);
 
       expect(res.status).toBe(200);
@@ -499,7 +637,7 @@ describe('Repository Ingestion & Software Digital Twin Foundation (E2E)', () => 
 
     it('returns latest software digital twin summary and node distribution', async () => {
       const res = await request(app.getHttpServer())
-        .get(`/organizations/${orgId1}/repositories/${repoId1}/digital-twin/latest`)
+        .get(`/organizations/${orgId1}/repositories/${repoIdFixture}/digital-twin/latest`)
         .set('Cookie', ownerCookie);
 
       expect(res.status).toBe(200);
@@ -512,7 +650,7 @@ describe('Repository Ingestion & Software Digital Twin Foundation (E2E)', () => 
 
     it('returns paginated and filterable digital twin nodes', async () => {
       const res = await request(app.getHttpServer())
-        .get(`/organizations/${orgId1}/repositories/${repoId1}/digital-twin/latest/nodes`)
+        .get(`/organizations/${orgId1}/repositories/${repoIdFixture}/digital-twin/latest/nodes`)
         .set('Cookie', ownerCookie);
 
       expect(res.status).toBe(200);
@@ -522,7 +660,7 @@ describe('Repository Ingestion & Software Digital Twin Foundation (E2E)', () => 
 
     it('returns paginated and filterable digital twin edges', async () => {
       const res = await request(app.getHttpServer())
-        .get(`/organizations/${orgId1}/repositories/${repoId1}/digital-twin/latest/edges`)
+        .get(`/organizations/${orgId1}/repositories/${repoIdFixture}/digital-twin/latest/edges`)
         .set('Cookie', ownerCookie);
 
       expect(res.status).toBe(200);

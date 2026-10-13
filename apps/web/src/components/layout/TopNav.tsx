@@ -27,7 +27,7 @@ interface NavItem {
 
 const PRIMARY_NAV_ITEMS: NavItem[] = [
   { label: 'Overview', href: '/' },
-  { label: 'Changes', href: '/changes/pull-requests' },
+  { label: 'Changes', href: '/workspace/changes' },
   { label: 'Digital Twin', href: '/digital-twin/system-map' },
   { label: 'Intelligence', href: '/intelligence/blast-radius' },
   { label: 'Release', href: '/release/safety' },

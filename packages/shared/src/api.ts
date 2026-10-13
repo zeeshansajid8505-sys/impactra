@@ -68,7 +68,9 @@ export type Permission =
   | 'repository.manage'
   | 'ingestion.trigger'
   | 'ingestion.read'
-  | 'digital_twin.read';
+  | 'digital_twin.read'
+  | 'change.read'
+  | 'change.sync';
 
 export interface UserDto {
   id: string;
@@ -283,38 +285,50 @@ export interface WebhookProcessingResponse {
 // Phase 05: Repository Ingestion & Digital Twin Foundation
 // ==========================================
 
+export const RepositoryIngestionStatus = {
+  QUEUED: 'QUEUED',
+  FETCHING: 'FETCHING',
+  VALIDATING: 'VALIDATING',
+  INDEXING: 'INDEXING',
+  BUILDING_TWIN: 'BUILDING_TWIN',
+  STORING: 'STORING',
+  SUCCEEDED: 'SUCCEEDED',
+  FAILED: 'FAILED',
+} as const;
 export type RepositoryIngestionStatus =
-  | 'QUEUED'
-  | 'FETCHING'
-  | 'VALIDATING'
-  | 'INDEXING'
-  | 'BUILDING_TWIN'
-  | 'STORING'
-  | 'SUCCEEDED'
-  | 'FAILED';
+  (typeof RepositoryIngestionStatus)[keyof typeof RepositoryIngestionStatus];
 
+export const RepositoryFileCategory = {
+  SOURCE_CODE: 'SOURCE_CODE',
+  CONFIGURATION: 'CONFIGURATION',
+  DOCUMENTATION: 'DOCUMENTATION',
+  TEST: 'TEST',
+  BUILD_SYSTEM: 'BUILD_SYSTEM',
+  DATA: 'DATA',
+  BINARY: 'BINARY',
+  OTHER: 'OTHER',
+} as const;
 export type RepositoryFileCategory =
-  | 'SOURCE_CODE'
-  | 'CONFIGURATION'
-  | 'DOCUMENTATION'
-  | 'TEST'
-  | 'BUILD_SYSTEM'
-  | 'DATA'
-  | 'BINARY'
-  | 'OTHER';
+  (typeof RepositoryFileCategory)[keyof typeof RepositoryFileCategory];
 
+export const DigitalTwinNodeTypeEnum = {
+  REPOSITORY: 'REPOSITORY',
+  FILE: 'FILE',
+  WORKSPACE_PACKAGE: 'WORKSPACE_PACKAGE',
+  EXTERNAL_DEPENDENCY: 'EXTERNAL_DEPENDENCY',
+  CONFIG: 'CONFIG',
+} as const;
 export type DigitalTwinNodeTypeEnum =
-  | 'REPOSITORY'
-  | 'FILE'
-  | 'WORKSPACE_PACKAGE'
-  | 'EXTERNAL_DEPENDENCY'
-  | 'CONFIG';
+  (typeof DigitalTwinNodeTypeEnum)[keyof typeof DigitalTwinNodeTypeEnum];
 
+export const DigitalTwinEdgeType = {
+  CONTAINS: 'CONTAINS',
+  IMPORTS: 'IMPORTS',
+  DECLARES_DEPENDENCY: 'DECLARES_DEPENDENCY',
+  WORKSPACE_DEPENDS_ON: 'WORKSPACE_DEPENDS_ON',
+} as const;
 export type DigitalTwinEdgeType =
-  | 'CONTAINS'
-  | 'IMPORTS'
-  | 'DECLARES_DEPENDENCY'
-  | 'WORKSPACE_DEPENDS_ON';
+  (typeof DigitalTwinEdgeType)[keyof typeof DigitalTwinEdgeType];
 
 export interface TriggerIngestionRequest {
   ref?: string;
@@ -428,4 +442,194 @@ export interface DigitalTwinEdgesResponse {
   total: number;
   page: number;
   limit: number;
+}
+
+// ==========================================
+// Phase 06: Change Ingestion & Twin Mapping
+// ==========================================
+
+export const ChangeRevisionStatus = {
+  QUEUED: 'QUEUED',
+  FETCHING: 'FETCHING',
+  WAITING_FOR_SNAPSHOTS: 'WAITING_FOR_SNAPSHOTS',
+  ANALYZING: 'ANALYZING',
+  MAPPING_TWIN: 'MAPPING_TWIN',
+  STORING: 'STORING',
+  SUCCEEDED: 'SUCCEEDED',
+  FAILED: 'FAILED',
+} as const;
+export type ChangeRevisionStatus =
+  (typeof ChangeRevisionStatus)[keyof typeof ChangeRevisionStatus];
+
+export const ChangedFileStatus = {
+  ADDED: 'ADDED',
+  MODIFIED: 'MODIFIED',
+  DELETED: 'DELETED',
+  RENAMED: 'RENAMED',
+} as const;
+export type ChangedFileStatus =
+  (typeof ChangedFileStatus)[keyof typeof ChangedFileStatus];
+
+export const TwinMappingSide = {
+  BEFORE: 'BEFORE',
+  AFTER: 'AFTER',
+} as const;
+export type TwinMappingSide =
+  (typeof TwinMappingSide)[keyof typeof TwinMappingSide];
+
+export const TwinMappingType = {
+  EXACT_PATH: 'EXACT_PATH',
+  RENAMED_PATH: 'RENAMED_PATH',
+  NOT_PRESENT: 'NOT_PRESENT',
+} as const;
+export type TwinMappingType =
+  (typeof TwinMappingType)[keyof typeof TwinMappingType];
+
+export const DependencyDeltaType = {
+  EDGE_ADDED: 'EDGE_ADDED',
+  EDGE_REMOVED: 'EDGE_REMOVED',
+} as const;
+export type DependencyDeltaType =
+  (typeof DependencyDeltaType)[keyof typeof DependencyDeltaType];
+
+export interface ChangeSetDto {
+  id: string;
+  organizationId: string;
+  repositoryConnectionId: string;
+  provider: string;
+  providerPullRequestId: string;
+  pullRequestNumber: number;
+  title: string;
+  authorLogin: string;
+  baseRef: string;
+  headRef: string;
+  currentBaseSha: string;
+  currentHeadSha: string;
+  state: string;
+  isDraft: boolean;
+  isMerged: boolean;
+  createdAt: string;
+  updatedAt: string;
+  latestRevision?: ChangeRevisionDto | null;
+  repository?: {
+    id: string;
+    name: string;
+    fullName: string;
+  };
+}
+
+export interface ChangeRevisionDto {
+  id: string;
+  changeSetId: string;
+  organizationId: string;
+  repositoryConnectionId: string;
+  baseSha: string;
+  headSha: string;
+  baseSnapshotId: string | null;
+  headSnapshotId: string | null;
+  analysisVersion: string;
+  status: ChangeRevisionStatus;
+  stage: string;
+  filesAdded: number;
+  filesModified: number;
+  filesDeleted: number;
+  filesRenamed: number;
+  nodesAdded: number;
+  nodesRemoved: number;
+  nodesModified: number;
+  edgesAdded: number;
+  edgesRemoved: number;
+  failureCode: string | null;
+  failureMessage: string | null;
+  queuedAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ChangedFileDto {
+  id: string;
+  changeRevisionId: string;
+  oldPath: string | null;
+  newPath: string | null;
+  status: ChangedFileStatus;
+  additions: number;
+  deletions: number;
+  changes: number;
+  patchAvailable: boolean;
+  patchTruncated: boolean;
+  binary: boolean;
+  createdAt: string;
+}
+
+export interface TwinChangeMappingDto {
+  id: string;
+  changeRevisionId: string;
+  changedFileId: string;
+  side: TwinMappingSide;
+  mappingType: TwinMappingType;
+  repositorySnapshotId: string | null;
+  digitalTwinSnapshotId: string | null;
+  digitalTwinNodeId: string | null;
+  nodeStableKey: string | null;
+  path: string;
+  createdAt: string;
+}
+
+export interface DependencyDeltaDto {
+  id: string;
+  changeRevisionId: string;
+  deltaType: DependencyDeltaType;
+  sourceStableKey: string;
+  targetStableKey: string;
+  edgeType: DigitalTwinEdgeType;
+  beforeEvidence: Record<string, unknown> | null;
+  afterEvidence: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface ChangeSetListResponse {
+  items: ChangeSetDto[];
+  total: number;
+  page: number;
+  limit: number;
+  pageSize?: number;
+  totalPages: number;
+}
+
+export interface ChangeRevisionListResponse {
+  items: ChangeRevisionDto[];
+  total: number;
+  page: number;
+  limit: number;
+  pageSize?: number;
+  totalPages: number;
+}
+
+export interface ChangedFilesResponse {
+  items: ChangedFileDto[];
+  total: number;
+  page: number;
+  limit: number;
+  pageSize?: number;
+  totalPages: number;
+}
+
+export interface TwinChangeMappingsResponse {
+  items: TwinChangeMappingDto[];
+  total: number;
+  page: number;
+  limit: number;
+  pageSize?: number;
+  totalPages: number;
+}
+
+export interface DependencyDeltaResponse {
+  items: DependencyDeltaDto[];
+  total: number;
+  page: number;
+  limit: number;
+  pageSize?: number;
+  totalPages: number;
 }

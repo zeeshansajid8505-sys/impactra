@@ -6,6 +6,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
+import { Prisma } from '@impactra/database';
 import { StorageService } from '../../storage/storage.service';
 import { IngestionQueueService } from '../queue/ingestion-queue.service';
 import { RepositorySourceProvider } from './repository-source-provider.service';
@@ -29,6 +30,7 @@ import {
   DigitalTwinEdgesResponse,
   DigitalTwinNodeEntityDto,
   DigitalTwinEdgeDto,
+  RepositoryFileCategory,
 } from '@impactra/shared';
 
 @Injectable()
@@ -54,8 +56,8 @@ export class IngestionOrchestratorService {
   async triggerIngestion(
     organizationId: string,
     repositoryId: string,
-    requestedByUserId: string,
-    dto: TriggerIngestionDto,
+    requestedByUserId?: string | null,
+    dto: TriggerIngestionDto = {},
   ): Promise<RepositoryIngestionDto> {
     const repository = await this.databaseService.client.repositoryConnection.findFirst({
       where: {
@@ -176,6 +178,19 @@ export class IngestionOrchestratorService {
     repositoryId: string,
     query: ListIngestionsQueryDto,
   ): Promise<RepositoryIngestionListResponse> {
+    const repository = await this.databaseService.client.repositoryConnection.findFirst({
+      where: {
+        id: repositoryId,
+        organizationId,
+      },
+    });
+
+    if (!repository) {
+      throw new NotFoundException(
+        `Repository connection '${repositoryId}' not found in organization '${organizationId}'.`,
+      );
+    }
+
     const page = query.page || 1;
     const limit = query.limit || 20;
     const skip = (page - 1) * limit;
@@ -254,7 +269,7 @@ export class IngestionOrchestratorService {
         byteSize: f.byteSize,
         language: f.language,
         isBinary: f.isBinary,
-        category: f.category as any,
+        category: f.category,
         createdAt: f.createdAt.toISOString(),
       })),
     };
@@ -656,7 +671,7 @@ export class IngestionOrchestratorService {
             byteSize: file.byteSize,
             language: cls.language,
             isBinary: cls.isBinary,
-            category: cls.category as any,
+            category: cls.category,
           };
         });
 
@@ -686,10 +701,10 @@ export class IngestionOrchestratorService {
         const nodesData = graph.nodes.map((node) => ({
           digitalTwinSnapshotId: twinSnapshot.id,
           stableKey: node.stableKey,
-          type: node.type as any,
+          type: node.type,
           name: node.name,
           path: node.path,
-          metadata: node.metadata as any,
+          metadata: (node.metadata || {}) as Prisma.InputJsonObject,
         }));
 
         if (nodesData.length > 0) {
@@ -720,8 +735,8 @@ export class IngestionOrchestratorService {
               digitalTwinSnapshotId: twinSnapshot.id,
               sourceNodeId,
               targetNodeId,
-              type: edge.type as any,
-              evidence: edge.evidence as any,
+              type: edge.type,
+              evidence: (edge.evidence || {}) as Prisma.InputJsonObject,
             };
           })
           .filter((e): e is NonNullable<typeof e> => e !== null);

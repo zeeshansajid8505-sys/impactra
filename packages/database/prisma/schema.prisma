@@ -68,6 +68,8 @@ model Organization {
   repositoryIngestions    RepositoryIngestion[]
   repositorySnapshots     RepositorySnapshot[]
   digitalTwinSnapshots    DigitalTwinSnapshot[]
+  changeSets              ChangeSet[]
+  changeRevisions         ChangeRevision[]
 
   @@map("organizations")
 }
@@ -237,6 +239,8 @@ model RepositoryConnection {
   ingestions           RepositoryIngestion[]
   snapshots            RepositorySnapshot[]
   digitalTwins         DigitalTwinSnapshot[]
+  changeSets           ChangeSet[]
+  changeRevisions      ChangeRevision[]
 
   @@unique([organizationId, githubRepositoryId])
   @@index([organizationId])
@@ -357,6 +361,8 @@ model RepositorySnapshot {
   ingestion              RepositoryIngestion       @relation(fields: [ingestionId], references: [id], onDelete: Cascade)
   fileInventories        RepositoryFileInventory[]
   digitalTwins           DigitalTwinSnapshot[]
+  baseChangeRevisions    ChangeRevision[]          @relation("BaseSnapshot")
+  headChangeRevisions    ChangeRevision[]          @relation("HeadSnapshot")
 
   @@unique([repositoryConnectionId, commitSha, parserVersion])
   @@index([organizationId])
@@ -419,6 +425,7 @@ model DigitalTwinNode {
   snapshot              DigitalTwinSnapshot @relation(fields: [digitalTwinSnapshotId], references: [id], onDelete: Cascade)
   outgoingEdges         DigitalTwinEdge[]   @relation("SourceNode")
   incomingEdges         DigitalTwinEdge[]   @relation("TargetNode")
+  twinMappings          TwinChangeMapping[]
 
   @@unique([digitalTwinSnapshotId, stableKey])
   @@index([digitalTwinSnapshotId])
@@ -446,4 +453,188 @@ model DigitalTwinEdge {
   @@index([targetNodeId])
   @@index([type])
   @@map("digital_twin_edges")
+}
+
+/// Change Revision Status enum.
+enum ChangeRevisionStatus {
+  QUEUED
+  FETCHING
+  WAITING_FOR_SNAPSHOTS
+  ANALYZING
+  MAPPING_TWIN
+  STORING
+  SUCCEEDED
+  FAILED
+}
+
+/// Changed File Status enum.
+enum ChangedFileStatus {
+  ADDED
+  MODIFIED
+  DELETED
+  RENAMED
+}
+
+/// Twin Mapping Side enum.
+enum TwinMappingSide {
+  BEFORE
+  AFTER
+}
+
+/// Twin Mapping Type enum.
+enum TwinMappingType {
+  EXACT_PATH
+  RENAMED_PATH
+  NOT_PRESENT
+}
+
+/// Dependency Delta Type enum.
+enum DependencyDeltaType {
+  EDGE_ADDED
+  EDGE_REMOVED
+}
+
+/// Logical Pull Request / ChangeSet tracked per repository.
+model ChangeSet {
+  id                     String               @id @default(uuid())
+  organizationId         String               @map("organization_id")
+  repositoryConnectionId String               @map("repository_connection_id")
+  provider               String               @default("github")
+  providerPullRequestId  String               @map("provider_pull_request_id")
+  pullRequestNumber      Int                  @map("pull_request_number")
+  title                  String
+  authorLogin            String               @map("author_login")
+  baseRef                String               @map("base_ref")
+  headRef                String               @map("head_ref")
+  currentBaseSha         String               @map("current_base_sha")
+  currentHeadSha         String               @map("current_head_sha")
+  state                  String               @default("open")
+  isDraft                Boolean              @default(false) @map("is_draft")
+  isMerged               Boolean              @default(false) @map("is_merged")
+  createdAt              DateTime             @default(now()) @map("created_at")
+  updatedAt              DateTime             @updatedAt @map("updated_at")
+  organization           Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  repositoryConnection   RepositoryConnection @relation(fields: [repositoryConnectionId], references: [id], onDelete: Cascade)
+  revisions              ChangeRevision[]
+
+  @@unique([repositoryConnectionId, pullRequestNumber])
+  @@unique([repositoryConnectionId, providerPullRequestId])
+  @@index([organizationId])
+  @@index([repositoryConnectionId])
+  @@index([state])
+  @@map("change_sets")
+}
+
+/// Immutable analysis revision for an exact baseSha -> headSha commit pair.
+model ChangeRevision {
+  id                     String               @id @default(uuid())
+  changeSetId            String               @map("change_set_id")
+  organizationId         String               @map("organization_id")
+  repositoryConnectionId String               @map("repository_connection_id")
+  baseSha                String               @map("base_sha")
+  headSha                String               @map("head_sha")
+  baseSnapshotId         String?              @map("base_snapshot_id")
+  headSnapshotId         String?              @map("head_snapshot_id")
+  analysisVersion        String               @default("change-analysis-v1") @map("analysis_version")
+  status                 ChangeRevisionStatus @default(QUEUED)
+  stage                  String               @default("QUEUED")
+  filesAdded             Int                  @default(0) @map("files_added")
+  filesModified          Int                  @default(0) @map("files_modified")
+  filesDeleted           Int                  @default(0) @map("files_deleted")
+  filesRenamed           Int                  @default(0) @map("files_renamed")
+  nodesAdded             Int                  @default(0) @map("nodes_added")
+  nodesRemoved           Int                  @default(0) @map("nodes_removed")
+  nodesModified          Int                  @default(0) @map("nodes_modified")
+  edgesAdded             Int                  @default(0) @map("edges_added")
+  edgesRemoved           Int                  @default(0) @map("edges_removed")
+  failureCode            String?              @map("failure_code")
+  failureMessage         String?              @map("failure_message")
+  queuedAt               DateTime             @default(now()) @map("queued_at")
+  startedAt              DateTime?            @map("started_at")
+  completedAt            DateTime?            @map("completed_at")
+  createdAt              DateTime             @default(now()) @map("created_at")
+  updatedAt              DateTime             @updatedAt @map("updated_at")
+  changeSet              ChangeSet            @relation(fields: [changeSetId], references: [id], onDelete: Cascade)
+  organization           Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  repositoryConnection   RepositoryConnection @relation(fields: [repositoryConnectionId], references: [id], onDelete: Cascade)
+  baseSnapshot           RepositorySnapshot?  @relation("BaseSnapshot", fields: [baseSnapshotId], references: [id], onDelete: SetNull)
+  headSnapshot           RepositorySnapshot?  @relation("HeadSnapshot", fields: [headSnapshotId], references: [id], onDelete: SetNull)
+  changedFiles           ChangedFile[]
+  twinMappings           TwinChangeMapping[]
+  dependencyDeltas       DependencyDelta[]
+
+  @@unique([changeSetId, baseSha, headSha, analysisVersion])
+  @@index([changeSetId])
+  @@index([organizationId])
+  @@index([repositoryConnectionId])
+  @@index([status])
+  @@index([baseSha])
+  @@index([headSha])
+  @@map("change_revisions")
+}
+
+/// Metadata and diff stats for a file changed in a pull request revision.
+model ChangedFile {
+  id               String            @id @default(uuid())
+  changeRevisionId String            @map("change_revision_id")
+  oldPath          String?           @map("old_path")
+  newPath          String?           @map("new_path")
+  status           ChangedFileStatus
+  additions        Int               @default(0)
+  deletions        Int               @default(0)
+  changes          Int               @default(0)
+  patchAvailable   Boolean           @default(false) @map("patch_available")
+  patchTruncated   Boolean           @default(false) @map("patch_truncated")
+  binary           Boolean           @default(false)
+  createdAt        DateTime          @default(now()) @map("created_at")
+  changeRevision   ChangeRevision    @relation(fields: [changeRevisionId], references: [id], onDelete: Cascade)
+  twinMappings     TwinChangeMapping[]
+
+  @@index([changeRevisionId])
+  @@index([status])
+  @@map("changed_files")
+}
+
+/// Deterministic mapping between a changed file and Digital Twin nodes/snapshots.
+model TwinChangeMapping {
+  id                    String              @id @default(uuid())
+  changeRevisionId      String              @map("change_revision_id")
+  changedFileId         String              @map("changed_file_id")
+  side                  TwinMappingSide
+  mappingType           TwinMappingType     @map("mapping_type")
+  repositorySnapshotId  String?             @map("repository_snapshot_id")
+  digitalTwinSnapshotId String?             @map("digital_twin_snapshot_id")
+  digitalTwinNodeId     String?             @map("digital_twin_node_id")
+  nodeStableKey         String?             @map("node_stable_key")
+  path                  String
+  createdAt             DateTime            @default(now()) @map("created_at")
+  changeRevision        ChangeRevision      @relation(fields: [changeRevisionId], references: [id], onDelete: Cascade)
+  changedFile           ChangedFile         @relation(fields: [changedFileId], references: [id], onDelete: Cascade)
+  digitalTwinNode       DigitalTwinNode?    @relation(fields: [digitalTwinNodeId], references: [id], onDelete: SetNull)
+
+  @@index([changeRevisionId])
+  @@index([changedFileId])
+  @@index([digitalTwinNodeId])
+  @@index([side])
+  @@map("twin_change_mappings")
+}
+
+/// Direct graph edge additions and removals between base and head Digital Twins.
+model DependencyDelta {
+  id               String              @id @default(uuid())
+  changeRevisionId String              @map("change_revision_id")
+  deltaType        DependencyDeltaType @map("delta_type")
+  sourceStableKey  String              @map("source_stable_key")
+  targetStableKey  String              @map("target_stable_key")
+  edgeType         DigitalTwinEdgeType @map("edge_type")
+  beforeEvidence   Json?               @default("{}") @map("before_evidence")
+  afterEvidence    Json?               @default("{}") @map("after_evidence")
+  createdAt        DateTime            @default(now()) @map("created_at")
+  changeRevision   ChangeRevision      @relation(fields: [changeRevisionId], references: [id], onDelete: Cascade)
+
+  @@index([changeRevisionId])
+  @@index([deltaType])
+  @@index([sourceStableKey])
+  @@index([targetStableKey])
+  @@map("dependency_deltas")
 }

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { DatabaseModule } from '../database/database.module';
 import { CacheModule } from '../cache/cache.module';
 import { SessionsModule } from '../sessions/sessions.module';
@@ -12,9 +12,16 @@ import { GitHubWebhookService } from './services/github-webhook.service';
 import { GitHubController } from './controllers/github.controller';
 import { OrganizationGitHubController } from './controllers/organization-github.controller';
 import { OrganizationRepositoryController } from './controllers/organization-repository.controller';
+import { ChangesModule } from '../changes/changes.module';
 
 @Module({
-  imports: [DatabaseModule, CacheModule, SessionsModule, OrganizationsModule],
+  imports: [
+    DatabaseModule,
+    CacheModule,
+    SessionsModule,
+    OrganizationsModule,
+    forwardRef(() => ChangesModule),
+  ],
   controllers: [
     GitHubController,
     OrganizationGitHubController,
@@ -30,6 +37,7 @@ import { OrganizationRepositoryController } from './controllers/organization-rep
   ],
   exports: [
     GitHubConfigService,
+    GitHubClientService,
     GitHubInstallationService,
     GitHubRepositoryService,
     GitHubWebhookService,

@@ -3,12 +3,16 @@ import {
   Logger,
   UnauthorizedException,
   BadRequestException,
+  Inject,
+  forwardRef,
+  Optional,
 } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { DatabaseService } from '../../database/database.service';
 import { GitHubConfigService } from '../config/github-config.service';
 import { GitHubInstallationService } from './github-installation.service';
 import { GitHubRepositoryService } from './github-repository.service';
+import { ChangeOrchestratorService } from '../../changes/services/change-orchestrator.service';
 import { WebhookProcessingResponse } from '@impactra/shared';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -57,6 +61,9 @@ export class GitHubWebhookService {
     private readonly configService: GitHubConfigService,
     private readonly installationService: GitHubInstallationService,
     private readonly repositoryService: GitHubRepositoryService,
+    @Optional()
+    @Inject(forwardRef(() => ChangeOrchestratorService))
+    private readonly changeOrchestratorService?: ChangeOrchestratorService,
   ) {}
 
   /**
@@ -238,6 +245,14 @@ export class GitHubWebhookService {
 
       case 'repository':
         await this.handleRepositoryEvent(action, githubInstallationId, payload);
+        break;
+
+      case 'pull_request':
+        if (this.changeOrchestratorService) {
+          await this.changeOrchestratorService.handlePullRequestWebhook(event, payload);
+        } else {
+          this.logger.warn('ChangeOrchestratorService not available to handle pull_request webhook');
+        }
         break;
 
       default:

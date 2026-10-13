@@ -24,7 +24,7 @@ export class IngestionQueueService {
         'ingest-repository',
         { ingestionId },
         {
-          jobId: `ingest:${ingestionId}`, // deterministic deduplication
+          jobId: `repository-ingestion-${ingestionId}`, // deterministic deduplication (colon-free)
           attempts: 1, // DB state remains authoritative source of truth
           removeOnComplete: true,
           removeOnFail: false,

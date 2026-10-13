@@ -28,6 +28,16 @@ import {
   DigitalTwinSummaryResponse,
   DigitalTwinNodesResponse,
   DigitalTwinEdgesResponse,
+  ChangeSetDto,
+  ChangeRevisionDto,
+  ChangedFileDto,
+  TwinChangeMappingDto,
+  DependencyDeltaDto,
+  ChangeSetListResponse,
+  ChangeRevisionListResponse,
+  ChangedFilesResponse,
+  TwinChangeMappingsResponse,
+  DependencyDeltaResponse,
 } from '@impactra/shared';
 
 export function getApiBaseUrl(): string {
@@ -599,4 +609,200 @@ export async function apiListTwinEdges(
     },
   );
   return handleResponse<DigitalTwinEdgesResponse>(res);
+}
+
+// ==========================================
+// Pull Request & Change Intelligence API
+// ==========================================
+
+export async function apiListChangeSets(
+  organizationId: string,
+  query?: {
+    page?: number;
+    limit?: number;
+    repositoryId?: string;
+    status?: string;
+    search?: string;
+  },
+): Promise<ChangeSetListResponse> {
+  const params = new URLSearchParams();
+  if (query?.page) params.set('page', String(query.page));
+  if (query?.limit) params.set('limit', String(query.limit));
+  if (query?.repositoryId) params.set('repositoryId', query.repositoryId);
+  if (query?.status) params.set('status', query.status);
+  if (query?.search) params.set('search', query.search);
+  const qs = params.toString() ? `?${params.toString()}` : '';
+
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/changes${qs}`,
+    {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+    },
+  );
+  return handleResponse<ChangeSetListResponse>(res);
+}
+
+export async function apiGetChangeSet(
+  organizationId: string,
+  changeSetId: string,
+): Promise<ChangeSetDto> {
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/changes/${changeSetId}`,
+    {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+    },
+  );
+  return handleResponse<ChangeSetDto>(res);
+}
+
+export async function apiListChangeRevisions(
+  organizationId: string,
+  changeSetId: string,
+  query?: { page?: number; limit?: number },
+): Promise<ChangeRevisionListResponse> {
+  const params = new URLSearchParams();
+  if (query?.page) params.set('page', String(query.page));
+  if (query?.limit) params.set('limit', String(query.limit));
+  const qs = params.toString() ? `?${params.toString()}` : '';
+
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/changes/${changeSetId}/revisions${qs}`,
+    {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+    },
+  );
+  return handleResponse<ChangeRevisionListResponse>(res);
+}
+
+export async function apiGetChangeRevision(
+  organizationId: string,
+  changeSetId: string,
+  revisionId: string,
+): Promise<ChangeRevisionDto> {
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/changes/${changeSetId}/revisions/${revisionId}`,
+    {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+    },
+  );
+  return handleResponse<ChangeRevisionDto>(res);
+}
+
+export async function apiListChangedFiles(
+  organizationId: string,
+  changeSetId: string,
+  revisionId: string,
+  query?: { page?: number; limit?: number; status?: string },
+): Promise<ChangedFilesResponse> {
+  const params = new URLSearchParams();
+  if (query?.page) params.set('page', String(query.page));
+  if (query?.limit) params.set('limit', String(query.limit));
+  if (query?.status) params.set('status', query.status);
+  const qs = params.toString() ? `?${params.toString()}` : '';
+
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/changes/${changeSetId}/revisions/${revisionId}/files${qs}`,
+    {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+    },
+  );
+  return handleResponse<ChangedFilesResponse>(res);
+}
+
+export async function apiListTwinChangeMappings(
+  organizationId: string,
+  changeSetId: string,
+  revisionId: string,
+  query?: { page?: number; limit?: number; mappingType?: string },
+): Promise<TwinChangeMappingsResponse> {
+  const params = new URLSearchParams();
+  if (query?.page) params.set('page', String(query.page));
+  if (query?.limit) params.set('limit', String(query.limit));
+  if (query?.mappingType) params.set('mappingType', query.mappingType);
+  const qs = params.toString() ? `?${params.toString()}` : '';
+
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/changes/${changeSetId}/revisions/${revisionId}/twin-mappings${qs}`,
+    {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+    },
+  );
+  return handleResponse<TwinChangeMappingsResponse>(res);
+}
+
+export async function apiListDependencyDeltas(
+  organizationId: string,
+  changeSetId: string,
+  revisionId: string,
+  query?: { page?: number; limit?: number; deltaType?: string },
+): Promise<DependencyDeltaResponse> {
+  const params = new URLSearchParams();
+  if (query?.page) params.set('page', String(query.page));
+  if (query?.limit) params.set('limit', String(query.limit));
+  if (query?.deltaType) params.set('deltaType', query.deltaType);
+  const qs = params.toString() ? `?${params.toString()}` : '';
+
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/changes/${changeSetId}/revisions/${revisionId}/dependency-deltas${qs}`,
+    {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+    },
+  );
+  return handleResponse<DependencyDeltaResponse>(res);
+}
+
+export async function apiSyncPullRequest(
+  organizationId: string,
+  repositoryId: string,
+  prNumber: number,
+): Promise<ChangeSetDto> {
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/repositories/${repositoryId}/changes/sync`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+      body: JSON.stringify({ prNumber }),
+    },
+  );
+  return handleResponse<ChangeSetDto>(res);
 }

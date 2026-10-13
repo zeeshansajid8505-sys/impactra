@@ -56,6 +56,10 @@ export const envSchema = z.object({
   INGESTION_MAX_FILE_COUNT: z.coerce.number().int().positive().default(10000),
   INGESTION_MAX_PATH_DEPTH: z.coerce.number().int().positive().default(20),
   INGESTION_MAX_PATH_LENGTH: z.coerce.number().int().positive().default(255),
+  CHANGE_MAX_FILES: z.coerce.number().int().positive().default(1000),
+  CHANGE_MAX_PATCH_BYTES_PER_FILE: z.coerce.number().int().positive().default(262144), // 256KB
+  CHANGE_MAX_TOTAL_PATCH_BYTES: z.coerce.number().int().positive().default(10485760), // 10MB
+  CHANGE_ANALYSIS_TIMEOUT_SECONDS: z.coerce.number().int().positive().default(300),
 }).transform((data) => ({
   ...data,
   COOKIE_SECURE:
