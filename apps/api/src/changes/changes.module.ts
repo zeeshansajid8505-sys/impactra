@@ -3,6 +3,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { DatabaseModule } from '../database/database.module';
 import { GithubModule } from '../github/github.module';
 import { IngestionModule } from '../ingestion/ingestion.module';
+import { BlastRadiusModule } from '../blast-radius/blast-radius.module';
 import { OrganizationsModule } from '../organizations/organizations.module';
 import { SessionsModule } from '../sessions/sessions.module';
 import { CacheModule } from '../cache/cache.module';
@@ -24,6 +25,7 @@ import { OrganizationChangesController } from './controllers/organization-change
     OrganizationsModule,
     SessionsModule,
     CacheModule,
+    forwardRef(() => BlastRadiusModule),
     BullModule.registerQueue({
       name: 'change-ingestion',
     }),

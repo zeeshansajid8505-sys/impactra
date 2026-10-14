@@ -70,6 +70,7 @@ model Organization {
   digitalTwinSnapshots    DigitalTwinSnapshot[]
   changeSets              ChangeSet[]
   changeRevisions         ChangeRevision[]
+  blastRadiusAnalyses     BlastRadiusAnalysis[]
 
   @@map("organizations")
 }
@@ -426,6 +427,8 @@ model DigitalTwinNode {
   outgoingEdges         DigitalTwinEdge[]   @relation("SourceNode")
   incomingEdges         DigitalTwinEdge[]   @relation("TargetNode")
   twinMappings          TwinChangeMapping[]
+  blastRadiusRoots      BlastRadiusRoot[]
+  blastRadiusFindings   BlastRadiusFinding[]
 
   @@unique([digitalTwinSnapshotId, stableKey])
   @@index([digitalTwinSnapshotId])
@@ -516,6 +519,7 @@ model ChangeSet {
   organization           Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   repositoryConnection   RepositoryConnection @relation(fields: [repositoryConnectionId], references: [id], onDelete: Cascade)
   revisions              ChangeRevision[]
+  blastRadiusAnalyses    BlastRadiusAnalysis[]
 
   @@unique([repositoryConnectionId, pullRequestNumber])
   @@unique([repositoryConnectionId, providerPullRequestId])
@@ -562,6 +566,7 @@ model ChangeRevision {
   changedFiles           ChangedFile[]
   twinMappings           TwinChangeMapping[]
   dependencyDeltas       DependencyDelta[]
+  blastRadiusAnalyses    BlastRadiusAnalysis[]
 
   @@unique([changeSetId, baseSha, headSha, analysisVersion])
   @@index([changeSetId])
@@ -611,6 +616,7 @@ model TwinChangeMapping {
   changeRevision        ChangeRevision      @relation(fields: [changeRevisionId], references: [id], onDelete: Cascade)
   changedFile           ChangedFile         @relation(fields: [changedFileId], references: [id], onDelete: Cascade)
   digitalTwinNode       DigitalTwinNode?    @relation(fields: [digitalTwinNodeId], references: [id], onDelete: SetNull)
+  blastRadiusRoots      BlastRadiusRoot[]
 
   @@index([changeRevisionId])
   @@index([changedFileId])
@@ -637,4 +643,146 @@ model DependencyDelta {
   @@index([sourceStableKey])
   @@index([targetStableKey])
   @@map("dependency_deltas")
+}
+
+/// Blast Radius Analysis Status enum.
+enum BlastRadiusAnalysisStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+/// Blast Radius Snapshot Side enum.
+enum BlastRadiusSnapshotSide {
+  BASE
+  HEAD
+}
+
+/// Blast Radius Impact Class enum.
+enum BlastRadiusImpactClass {
+  FIRST_ORDER
+  TRANSITIVE
+}
+
+/// Blast Radius Category enum derived deterministically from Digital Twin node types.
+enum BlastRadiusCategory {
+  REPOSITORY
+  FILE
+  WORKSPACE_PACKAGE
+  EXTERNAL_DEPENDENCY
+  CONFIG
+  OTHER
+}
+
+/// Deterministic blast-radius analysis execution and summary for a ChangeRevision.
+model BlastRadiusAnalysis {
+  id                        String                     @id @default(uuid())
+  organizationId            String                     @map("organization_id")
+  changeSetId               String                     @map("change_set_id")
+  changeRevisionId          String                     @map("change_revision_id")
+  baseDigitalTwinSnapshotId String?                    @map("base_digital_twin_snapshot_id")
+  headDigitalTwinSnapshotId String?                    @map("head_digital_twin_snapshot_id")
+  status                    BlastRadiusAnalysisStatus  @default(QUEUED)
+  analysisVersion           String                     @default("blast-radius-v1") @map("analysis_version")
+  maxDepth                  Int                        @default(5) @map("max_depth")
+  rootCount                 Int                        @default(0) @map("root_count")
+  affectedNodeCount         Int                        @default(0) @map("affected_node_count")
+  firstOrderCount           Int                        @default(0) @map("first_order_count")
+  transitiveCount           Int                        @default(0) @map("transitive_count")
+  evidencePathCount         Int                        @default(0) @map("evidence_path_count")
+  truncated                 Boolean                    @default(false)
+  startedAt                 DateTime?                  @map("started_at")
+  completedAt               DateTime?                  @map("completed_at")
+  failureCode               String?                    @map("failure_code")
+  failureMessage            String?                    @map("failure_message")
+  createdAt                 DateTime                   @default(now()) @map("created_at")
+  updatedAt                 DateTime                   @updatedAt @map("updated_at")
+  organization              Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  changeSet                 ChangeSet                  @relation(fields: [changeSetId], references: [id], onDelete: Cascade)
+  changeRevision            ChangeRevision             @relation(fields: [changeRevisionId], references: [id], onDelete: Cascade)
+  roots                     BlastRadiusRoot[]
+  findings                  BlastRadiusFinding[]
+  evidencePaths             BlastRadiusEvidencePath[]
+
+  @@unique([changeRevisionId, analysisVersion])
+  @@index([organizationId])
+  @@index([changeSetId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("blast_radius_analyses")
+}
+
+/// Deterministic changed entity root triggering blast-radius propagation.
+model BlastRadiusRoot {
+  id                  String                  @id @default(uuid())
+  analysisId          String                  @map("analysis_id")
+  twinChangeMappingId String?                 @map("twin_change_mapping_id")
+  snapshotSide        BlastRadiusSnapshotSide @map("snapshot_side")
+  digitalTwinNodeId   String?                 @map("digital_twin_node_id")
+  stableKey           String                  @map("stable_key")
+  nodeType            DigitalTwinNodeType     @map("node_type")
+  changeKind          ChangedFileStatus       @map("change_kind")
+  createdAt           DateTime                @default(now()) @map("created_at")
+  analysis            BlastRadiusAnalysis     @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  twinChangeMapping   TwinChangeMapping?      @relation(fields: [twinChangeMappingId], references: [id], onDelete: SetNull)
+  digitalTwinNode     DigitalTwinNode?        @relation(fields: [digitalTwinNodeId], references: [id], onDelete: SetNull)
+  findings            BlastRadiusFinding[]
+
+  @@index([analysisId])
+  @@index([stableKey])
+  @@index([digitalTwinNodeId])
+  @@map("blast_radius_roots")
+}
+
+/// Affected dependent software entity identified through deterministic graph traversal.
+model BlastRadiusFinding {
+  id                String                  @id @default(uuid())
+  analysisId        String                  @map("analysis_id")
+  rootId            String?                 @map("root_id")
+  digitalTwinNodeId String?                 @map("digital_twin_node_id")
+  stableKey         String                  @map("stable_key")
+  nodeName          String                  @map("node_name")
+  nodePath          String?                 @map("node_path")
+  nodeType          DigitalTwinNodeType     @map("node_type")
+  category          BlastRadiusCategory
+  impactClass       BlastRadiusImpactClass  @map("impact_class")
+  depth             Int
+  reasonCode        String                  @map("reason_code")
+  reasonSummary     String                  @map("reason_summary")
+  snapshotSide      BlastRadiusSnapshotSide @map("snapshot_side")
+  createdAt         DateTime                @default(now()) @map("created_at")
+  analysis          BlastRadiusAnalysis     @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  root              BlastRadiusRoot?        @relation(fields: [rootId], references: [id], onDelete: SetNull)
+  digitalTwinNode   DigitalTwinNode?        @relation(fields: [digitalTwinNodeId], references: [id], onDelete: SetNull)
+  evidencePaths     BlastRadiusEvidencePath[]
+
+  @@unique([analysisId, stableKey])
+  @@index([analysisId])
+  @@index([impactClass])
+  @@index([category])
+  @@index([depth])
+  @@map("blast_radius_findings")
+}
+
+/// Verifiable, immutable dependency evidence path connecting a root to an affected entity.
+model BlastRadiusEvidencePath {
+  id                String                  @id @default(uuid())
+  analysisId        String                  @map("analysis_id")
+  findingId         String                  @map("finding_id")
+  rootStableKey     String                  @map("root_stable_key")
+  affectedStableKey String                  @map("affected_stable_key")
+  snapshotSide      BlastRadiusSnapshotSide @map("snapshot_side")
+  depth             Int
+  pathNodesJson     Json                    @map("path_nodes_json")
+  pathEdgesJson     Json                    @map("path_edges_json")
+  createdAt         DateTime                @default(now()) @map("created_at")
+  analysis          BlastRadiusAnalysis     @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  finding           BlastRadiusFinding      @relation(fields: [findingId], references: [id], onDelete: Cascade)
+
+  @@index([analysisId])
+  @@index([findingId])
+  @@index([rootStableKey])
+  @@index([affectedStableKey])
+  @@map("blast_radius_evidence_paths")
 }

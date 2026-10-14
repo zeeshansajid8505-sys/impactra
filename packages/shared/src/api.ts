@@ -70,7 +70,9 @@ export type Permission =
   | 'ingestion.read'
   | 'digital_twin.read'
   | 'change.read'
-  | 'change.sync';
+  | 'change.sync'
+  | 'blast_radius.read'
+  | 'blast_radius.analyze';
 
 export interface UserDto {
   id: string;
@@ -320,6 +322,8 @@ export const DigitalTwinNodeTypeEnum = {
 } as const;
 export type DigitalTwinNodeTypeEnum =
   (typeof DigitalTwinNodeTypeEnum)[keyof typeof DigitalTwinNodeTypeEnum];
+export const DigitalTwinNodeType = DigitalTwinNodeTypeEnum;
+export type DigitalTwinNodeType = DigitalTwinNodeTypeEnum;
 
 export const DigitalTwinEdgeType = {
   CONTAINS: 'CONTAINS',
@@ -627,6 +631,174 @@ export interface TwinChangeMappingsResponse {
 
 export interface DependencyDeltaResponse {
   items: DependencyDeltaDto[];
+  total: number;
+  page: number;
+  limit: number;
+  pageSize?: number;
+  totalPages: number;
+}
+
+// ==========================================
+// Phase 07: Deterministic Blast Radius Contracts
+// ==========================================
+
+export const BlastRadiusAnalysisStatus = {
+  QUEUED: 'QUEUED',
+  RUNNING: 'RUNNING',
+  SUCCEEDED: 'SUCCEEDED',
+  FAILED: 'FAILED',
+} as const;
+export type BlastRadiusAnalysisStatus =
+  (typeof BlastRadiusAnalysisStatus)[keyof typeof BlastRadiusAnalysisStatus];
+
+export const BlastRadiusSnapshotSide = {
+  BASE: 'BASE',
+  HEAD: 'HEAD',
+} as const;
+export type BlastRadiusSnapshotSide =
+  (typeof BlastRadiusSnapshotSide)[keyof typeof BlastRadiusSnapshotSide];
+
+export const BlastRadiusImpactClass = {
+  FIRST_ORDER: 'FIRST_ORDER',
+  TRANSITIVE: 'TRANSITIVE',
+} as const;
+export type BlastRadiusImpactClass =
+  (typeof BlastRadiusImpactClass)[keyof typeof BlastRadiusImpactClass];
+
+export const BlastRadiusCategory = {
+  REPOSITORY: 'REPOSITORY',
+  FILE: 'FILE',
+  WORKSPACE_PACKAGE: 'WORKSPACE_PACKAGE',
+  EXTERNAL_DEPENDENCY: 'EXTERNAL_DEPENDENCY',
+  CONFIG: 'CONFIG',
+  OTHER: 'OTHER',
+} as const;
+export type BlastRadiusCategory =
+  (typeof BlastRadiusCategory)[keyof typeof BlastRadiusCategory];
+
+export interface PathNodeDto {
+  stableKey: string;
+  name: string;
+  type: DigitalTwinNodeType;
+  path: string | null;
+}
+
+export interface PathEdgeDto {
+  sourceStableKey: string;
+  targetStableKey: string;
+  edgeType: DigitalTwinEdgeType;
+  direction: 'REVERSE_DEPENDENCY' | 'DIRECT';
+}
+
+export interface BlastRadiusEvidencePathDto {
+  id: string;
+  analysisId: string;
+  findingId: string;
+  rootStableKey: string;
+  affectedStableKey: string;
+  snapshotSide: BlastRadiusSnapshotSide;
+  depth: number;
+  hopCount: number;
+  pathNodes: PathNodeDto[];
+  pathEdges: PathEdgeDto[];
+  createdAt: string;
+}
+
+export interface BlastRadiusRootDto {
+  id: string;
+  analysisId: string;
+  twinChangeMappingId: string | null;
+  snapshotSide: BlastRadiusSnapshotSide;
+  digitalTwinNodeId: string | null;
+  stableKey: string;
+  nodeType: DigitalTwinNodeType;
+  changeKind: ChangedFileStatus;
+  createdAt: string;
+}
+
+export interface BlastRadiusFindingDto {
+  id: string;
+  analysisId: string;
+  rootId: string | null;
+  digitalTwinNodeId: string | null;
+  stableKey: string;
+  nodeName: string;
+  nodePath: string | null;
+  nodeType: DigitalTwinNodeType;
+  category: BlastRadiusCategory;
+  impactClass: BlastRadiusImpactClass;
+  depth: number;
+  reasonCode: string;
+  reasonSummary: string;
+  snapshotSide: BlastRadiusSnapshotSide;
+  createdAt: string;
+  evidencePaths?: BlastRadiusEvidencePathDto[];
+}
+
+export interface BlastRadiusAnalysisDto {
+  id: string;
+  organizationId: string;
+  changeSetId: string;
+  changeRevisionId: string;
+  baseDigitalTwinSnapshotId: string | null;
+  headDigitalTwinSnapshotId: string | null;
+  status: BlastRadiusAnalysisStatus;
+  analysisVersion: string;
+  maxDepth: number;
+  rootCount: number;
+  affectedNodeCount: number;
+  firstOrderCount: number;
+  transitiveCount: number;
+  totalAffectedNodes?: number;
+  firstOrderAffectedNodes?: number;
+  transitiveAffectedNodes?: number;
+  evidencePathCount: number;
+  truncated: boolean;
+  startedAt: string | null;
+  completedAt: string | null;
+  failureCode: string | null;
+  failureMessage: string | null;
+  createdAt: string;
+  updatedAt: string;
+  changeSet?: ChangeSetDto;
+  changeRevision?: ChangeRevisionDto;
+  roots?: BlastRadiusRootDto[];
+  findings?: BlastRadiusFindingDto[];
+}
+
+export interface BlastRadiusAnalysisSummaryResponse {
+  analysis: BlastRadiusAnalysisDto;
+  roots: BlastRadiusRootDto[];
+  summary: {
+    rootCount: number;
+    affectedNodeCount: number;
+    firstOrderCount: number;
+    transitiveCount: number;
+    evidencePathCount: number;
+    truncated: boolean;
+  };
+}
+
+export interface BlastRadiusFindingsResponse {
+  items: BlastRadiusFindingDto[];
+  total: number;
+  page: number;
+  limit: number;
+  pageSize?: number;
+  totalPages: number;
+}
+
+export interface BlastRadiusEvidencePathsResponse {
+  items: BlastRadiusEvidencePathDto[];
+  total: number;
+  page: number;
+  limit: number;
+  pageSize?: number;
+  totalPages: number;
+}
+
+export interface BlastRadiusAnalysesListResponse {
+  items: BlastRadiusAnalysisDto[];
   total: number;
   page: number;
   limit: number;

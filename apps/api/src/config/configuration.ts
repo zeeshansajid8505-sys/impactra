@@ -48,5 +48,10 @@ export default registerAs('app', () => {
       maxTotalPatchBytes: parseInt(process.env.CHANGE_MAX_TOTAL_PATCH_BYTES || '10485760', 10),
       analysisTimeoutSeconds: parseInt(process.env.CHANGE_ANALYSIS_TIMEOUT_SECONDS || '300', 10),
     },
+    blastRadius: {
+      maxDepth: parseInt(process.env.BLAST_RADIUS_MAX_DEPTH || '5', 10),
+      maxAffectedNodes: parseInt(process.env.BLAST_RADIUS_MAX_AFFECTED_NODES || '5000', 10),
+      maxEvidencePaths: parseInt(process.env.BLAST_RADIUS_MAX_EVIDENCE_PATHS || '10000', 10),
+    },
   };
 });

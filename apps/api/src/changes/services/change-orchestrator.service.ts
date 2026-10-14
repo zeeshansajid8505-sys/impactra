@@ -4,6 +4,9 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  Optional,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
 import { ChangeQueueService } from '../queue/change-queue.service';
@@ -12,6 +15,7 @@ import { ChangedFileService } from './changed-file.service';
 import { SnapshotAlignmentService } from './snapshot-alignment.service';
 import { TwinChangeMapperService } from './twin-change-mapper.service';
 import { DependencyDeltaService } from './dependency-delta.service';
+import { BlastRadiusAnalysisService } from '../../blast-radius/services/blast-radius-analysis.service';
 import {
   ListChangeSetsQueryDto,
   ListChangeRevisionsQueryDto,
@@ -46,6 +50,9 @@ export class ChangeOrchestratorService {
     private readonly snapshotAlignmentService: SnapshotAlignmentService,
     private readonly twinChangeMapperService: TwinChangeMapperService,
     private readonly dependencyDeltaService: DependencyDeltaService,
+    @Optional()
+    @Inject(forwardRef(() => BlastRadiusAnalysisService))
+    private readonly blastRadiusService?: BlastRadiusAnalysisService,
   ) {}
 
   /**
@@ -603,6 +610,21 @@ export class ChangeOrchestratorService {
       });
 
       this.logger.log(`ChangeRevision ${changeRevisionId} successfully completed analysis.`);
+
+      // Automatic Phase 07 Integration: Trigger blast-radius analysis asynchronously
+      try {
+        if (this.blastRadiusService && revision.changeSetId) {
+          await this.blastRadiusService.triggerAnalysis(
+            revision.organizationId,
+            revision.changeSetId,
+          );
+          this.logger.log(`Enqueued blast-radius analysis for revision ${changeRevisionId}.`);
+        }
+      } catch (brError: any) {
+        this.logger.warn(
+          `Non-blocking failure enqueuing blast-radius analysis for revision ${changeRevisionId}: ${brError?.message}`,
+        );
+      }
     } catch (error: any) {
       this.logger.error(
         `Error processing change revision ${changeRevisionId}: ${error.message}`,

@@ -38,6 +38,14 @@ import {
   ChangedFilesResponse,
   TwinChangeMappingsResponse,
   DependencyDeltaResponse,
+  BlastRadiusAnalysisDto,
+  BlastRadiusFindingDto,
+  BlastRadiusEvidencePathDto,
+  BlastRadiusRootDto,
+  BlastRadiusAnalysisSummaryResponse,
+  BlastRadiusFindingsResponse,
+  BlastRadiusEvidencePathsResponse,
+  BlastRadiusAnalysesListResponse,
 } from '@impactra/shared';
 
 export function getApiBaseUrl(): string {
@@ -805,4 +813,164 @@ export async function apiSyncPullRequest(
     },
   );
   return handleResponse<ChangeSetDto>(res);
+}
+
+export async function apiTriggerBlastRadiusAnalysis(
+  organizationId: string,
+  changeSetId: string,
+  body?: { force?: boolean },
+): Promise<BlastRadiusAnalysisDto> {
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/changes/${changeSetId}/blast-radius/analyze`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+      body: JSON.stringify(body || {}),
+    },
+  );
+  return handleResponse<BlastRadiusAnalysisDto>(res);
+}
+
+export async function apiGetLatestBlastRadius(
+  organizationId: string,
+  changeSetId: string,
+): Promise<BlastRadiusAnalysisSummaryResponse> {
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/changes/${changeSetId}/blast-radius/latest`,
+    {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+    },
+  );
+  return handleResponse<BlastRadiusAnalysisSummaryResponse>(res);
+}
+
+export async function apiGetBlastRadiusAnalysis(
+  organizationId: string,
+  changeSetId: string,
+  analysisId: string,
+): Promise<BlastRadiusAnalysisDto> {
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/changes/${changeSetId}/blast-radius/${analysisId}`,
+    {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+    },
+  );
+  return handleResponse<BlastRadiusAnalysisDto>(res);
+}
+
+export async function apiListBlastRadiusFindings(
+  organizationId: string,
+  changeSetId: string,
+  analysisId: string,
+  query?: {
+    page?: number;
+    limit?: number;
+    category?: string;
+    impactClass?: string;
+    depth?: number;
+    snapshotSide?: string;
+    search?: string;
+  },
+): Promise<BlastRadiusFindingsResponse> {
+  const params = new URLSearchParams();
+  if (query?.page) params.set('page', String(query.page));
+  if (query?.limit) params.set('limit', String(query.limit));
+  if (query?.category) params.set('category', query.category);
+  if (query?.impactClass) params.set('impactClass', query.impactClass);
+  if (query?.depth) params.set('depth', String(query.depth));
+  if (query?.snapshotSide) params.set('snapshotSide', query.snapshotSide);
+  if (query?.search) params.set('search', query.search);
+
+  const qs = params.toString() ? `?${params.toString()}` : '';
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/changes/${changeSetId}/blast-radius/${analysisId}/findings${qs}`,
+    {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+    },
+  );
+  return handleResponse<BlastRadiusFindingsResponse>(res);
+}
+
+export async function apiListBlastRadiusEvidencePaths(
+  organizationId: string,
+  changeSetId: string,
+  analysisId: string,
+  query?: {
+    page?: number;
+    limit?: number;
+    findingId?: string;
+    rootStableKey?: string;
+    affectedStableKey?: string;
+  },
+): Promise<BlastRadiusEvidencePathsResponse> {
+  const params = new URLSearchParams();
+  if (query?.page) params.set('page', String(query.page));
+  if (query?.limit) params.set('limit', String(query.limit));
+  if (query?.findingId) params.set('findingId', query.findingId);
+  if (query?.rootStableKey) params.set('rootStableKey', query.rootStableKey);
+  if (query?.affectedStableKey) params.set('affectedStableKey', query.affectedStableKey);
+
+  const qs = params.toString() ? `?${params.toString()}` : '';
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/changes/${changeSetId}/blast-radius/${analysisId}/evidence-paths${qs}`,
+    {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+    },
+  );
+  return handleResponse<BlastRadiusEvidencePathsResponse>(res);
+}
+
+export async function apiListOrganizationBlastRadiusAnalyses(
+  organizationId: string,
+  query?: {
+    page?: number;
+    limit?: number;
+    repositoryId?: string;
+    status?: string;
+  },
+): Promise<BlastRadiusAnalysesListResponse> {
+  const params = new URLSearchParams();
+  if (query?.page) params.set('page', String(query.page));
+  if (query?.limit) params.set('limit', String(query.limit));
+  if (query?.repositoryId) params.set('repositoryId', query.repositoryId);
+  if (query?.status) params.set('status', query.status);
+
+  const qs = params.toString() ? `?${params.toString()}` : '';
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/blast-radius${qs}`,
+    {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+    },
+  );
+  return handleResponse<BlastRadiusAnalysesListResponse>(res);
 }

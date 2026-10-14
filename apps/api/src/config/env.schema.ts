@@ -60,6 +60,9 @@ export const envSchema = z.object({
   CHANGE_MAX_PATCH_BYTES_PER_FILE: z.coerce.number().int().positive().default(262144), // 256KB
   CHANGE_MAX_TOTAL_PATCH_BYTES: z.coerce.number().int().positive().default(10485760), // 10MB
   CHANGE_ANALYSIS_TIMEOUT_SECONDS: z.coerce.number().int().positive().default(300),
+  BLAST_RADIUS_MAX_DEPTH: z.coerce.number().int().min(1).max(50).default(5),
+  BLAST_RADIUS_MAX_AFFECTED_NODES: z.coerce.number().int().min(1).max(100000).default(5000),
+  BLAST_RADIUS_MAX_EVIDENCE_PATHS: z.coerce.number().int().min(1).max(100000).default(10000),
 }).transform((data) => ({
   ...data,
   COOKIE_SECURE:

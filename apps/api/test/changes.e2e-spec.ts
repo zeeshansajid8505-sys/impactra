@@ -9,6 +9,9 @@ import { DatabaseService } from '../src/database/database.service';
 import { CacheService } from '../src/cache/cache.service';
 import { StorageService } from '../src/storage/storage.service';
 import { GithubPullRequestService } from '../src/changes/services/github-pull-request.service';
+import { ChangeQueueService } from '../src/changes/queue/change-queue.service';
+import { BlastRadiusQueueService } from '../src/blast-radius/queue/blast-radius-queue.service';
+import { BlastRadiusAnalysisService } from '../src/blast-radius/services/blast-radius-analysis.service';
 import { AllExceptionsFilter } from '../src/common/filters/http-exception.filter';
 import { AppValidationPipe } from '../src/common/pipes/validation.pipe';
 
@@ -501,6 +504,20 @@ describe('Pull Request Change Ingestion & Twin Mapping Foundation (E2E)', () => 
       ping: jest.fn().mockResolvedValue({ status: 'healthy' }),
     };
 
+    const mockChangeQueueService = {
+      enqueue: jest.fn().mockResolvedValue(undefined),
+      enqueueWithDelay: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const mockBlastRadiusQueueService = {
+      enqueue: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const mockBlastRadiusAnalysisService = {
+      triggerAnalysis: jest.fn().mockResolvedValue({ id: 'mock-analysis-id' }),
+      executeAnalysis: jest.fn().mockResolvedValue(undefined),
+    };
+
     const moduleRef: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     })
@@ -512,6 +529,12 @@ describe('Pull Request Change Ingestion & Twin Mapping Foundation (E2E)', () => 
       .useValue(mockStorageService)
       .overrideProvider(GithubPullRequestService)
       .useValue(mockPrService)
+      .overrideProvider(ChangeQueueService)
+      .useValue(mockChangeQueueService)
+      .overrideProvider(BlastRadiusQueueService)
+      .useValue(mockBlastRadiusQueueService)
+      .overrideProvider(BlastRadiusAnalysisService)
+      .useValue(mockBlastRadiusAnalysisService)
       .compile();
 
     app = moduleRef.createNestApplication();

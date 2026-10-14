@@ -17,4 +17,6 @@ export enum Permission {
   DIGITAL_TWIN_READ = 'digital_twin.read',
   CHANGE_READ = 'change.read',
   CHANGE_SYNC = 'change.sync',
+  BLAST_RADIUS_READ = 'blast_radius.read',
+  BLAST_RADIUS_ANALYZE = 'blast_radius.analyze',
 }

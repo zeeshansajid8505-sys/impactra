@@ -7,6 +7,10 @@ import { CacheService } from '../src/cache/cache.service';
 import { StorageService } from '../src/storage/storage.service';
 import { AllExceptionsFilter } from '../src/common/filters/http-exception.filter';
 import { AppValidationPipe } from '../src/common/pipes/validation.pipe';
+import { BlastRadiusProcessor } from '../src/blast-radius/blast-radius.processor';
+import { ChangesProcessor } from '../src/changes/changes.processor';
+import { IngestionProcessor } from '../src/ingestion/ingestion.processor';
+import { getQueueToken } from '@nestjs/bullmq';
 
 const request: typeof supertest =
   typeof supertest === 'function'
@@ -284,6 +288,17 @@ describe('Authentication, Organizations & RBAC (E2E)', () => {
       },
     };
 
+    const mockBullQueue = {
+      add: jest.fn().mockResolvedValue({ id: 'mock-job-id' }),
+      getJob: jest.fn().mockResolvedValue(null),
+      close: jest.fn().mockResolvedValue(undefined),
+      on: jest.fn(),
+    };
+
+    const mockProcessor = {
+      process: jest.fn().mockResolvedValue(undefined),
+    };
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     })
@@ -293,6 +308,18 @@ describe('Authentication, Organizations & RBAC (E2E)', () => {
       .useValue(mockCacheService)
       .overrideProvider(StorageService)
       .useValue(mockStorageService)
+      .overrideProvider(BlastRadiusProcessor)
+      .useValue(mockProcessor)
+      .overrideProvider(ChangesProcessor)
+      .useValue(mockProcessor)
+      .overrideProvider(IngestionProcessor)
+      .useValue(mockProcessor)
+      .overrideProvider(getQueueToken('blast-radius-analysis'))
+      .useValue(mockBullQueue)
+      .overrideProvider(getQueueToken('change-ingestion'))
+      .useValue(mockBullQueue)
+      .overrideProvider(getQueueToken('repository-ingestion'))
+      .useValue(mockBullQueue)
       .compile();
 
     app = moduleFixture.createNestApplication();
