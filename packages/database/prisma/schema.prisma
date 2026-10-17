@@ -71,6 +71,8 @@ model Organization {
   changeSets              ChangeSet[]
   changeRevisions         ChangeRevision[]
   blastRadiusAnalyses     BlastRadiusAnalysis[]
+  releaseSafetyAssessments ReleaseSafetyAssessment[]
+  releaseSafetySignals    ReleaseSafetySignal[]
 
   @@map("organizations")
 }
@@ -520,6 +522,7 @@ model ChangeSet {
   repositoryConnection   RepositoryConnection @relation(fields: [repositoryConnectionId], references: [id], onDelete: Cascade)
   revisions              ChangeRevision[]
   blastRadiusAnalyses    BlastRadiusAnalysis[]
+  releaseSafetyAssessments ReleaseSafetyAssessment[]
 
   @@unique([repositoryConnectionId, pullRequestNumber])
   @@unique([repositoryConnectionId, providerPullRequestId])
@@ -567,6 +570,7 @@ model ChangeRevision {
   twinMappings           TwinChangeMapping[]
   dependencyDeltas       DependencyDelta[]
   blastRadiusAnalyses    BlastRadiusAnalysis[]
+  releaseSafetyAssessments ReleaseSafetyAssessment[]
 
   @@unique([changeSetId, baseSha, headSha, analysisVersion])
   @@index([changeSetId])
@@ -704,6 +708,7 @@ model BlastRadiusAnalysis {
   roots                     BlastRadiusRoot[]
   findings                  BlastRadiusFinding[]
   evidencePaths             BlastRadiusEvidencePath[]
+  releaseSafetyAssessments  ReleaseSafetyAssessment[]
 
   @@unique([changeRevisionId, analysisVersion])
   @@index([organizationId])
@@ -785,4 +790,114 @@ model BlastRadiusEvidencePath {
   @@index([rootStableKey])
   @@index([affectedStableKey])
   @@map("blast_radius_evidence_paths")
+}
+
+/// Release Safety Assessment Status enum.
+enum ReleaseSafetyAssessmentStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+/// Release Safety Decision enum.
+enum ReleaseSafetyDecision {
+  PASS
+  REVIEW_REQUIRED
+  BLOCKED
+}
+
+/// Release Risk Level enum.
+enum ReleaseRiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+/// Release Safety Signal Severity enum.
+enum ReleaseSafetySignalSeverity {
+  INFO
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+/// Release Safety Signal Category enum derived deterministically from available evidence classes.
+enum ReleaseSafetySignalCategory {
+  CHANGE_SIZE
+  BLAST_RADIUS
+  DEPENDENCY
+  ARCHITECTURE
+  ANALYSIS_QUALITY
+}
+
+/// Deterministic, policy-driven Release Safety assessment for a ChangeRevision.
+model ReleaseSafetyAssessment {
+  id                    String                        @id @default(uuid())
+  organizationId        String                        @map("organization_id")
+  changeSetId           String                        @map("change_set_id")
+  changeRevisionId      String                        @map("change_revision_id")
+  blastRadiusAnalysisId String                        @map("blast_radius_analysis_id")
+  status                ReleaseSafetyAssessmentStatus @default(QUEUED)
+  policyVersion         String                        @default("impactra-release-safety-v1") @map("policy_version")
+  riskScore             Int                           @default(0) @map("risk_score")
+  riskLevel             ReleaseRiskLevel              @default(LOW) @map("risk_level")
+  decision              ReleaseSafetyDecision         @default(PASS)
+  signalCount           Int                           @default(0) @map("signal_count")
+  blockingSignalCount   Int                           @default(0) @map("blocking_signal_count")
+  reviewSignalCount     Int                           @default(0) @map("review_signal_count")
+  startedAt             DateTime?                     @map("started_at")
+  completedAt           DateTime?                     @map("completed_at")
+  failedAt              DateTime?                     @map("failed_at")
+  failureCode           String?                       @map("failure_code")
+  failureMessage        String?                       @map("failure_message")
+  createdAt             DateTime                      @default(now()) @map("created_at")
+  updatedAt             DateTime                      @updatedAt @map("updated_at")
+  organization          Organization                  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  changeSet             ChangeSet                     @relation(fields: [changeSetId], references: [id], onDelete: Cascade)
+  changeRevision        ChangeRevision                @relation(fields: [changeRevisionId], references: [id], onDelete: Cascade)
+  blastRadiusAnalysis   BlastRadiusAnalysis           @relation(fields: [blastRadiusAnalysisId], references: [id], onDelete: Cascade)
+  signals               ReleaseSafetySignal[]
+
+  @@unique([changeRevisionId, blastRadiusAnalysisId, policyVersion])
+  @@index([organizationId])
+  @@index([changeSetId])
+  @@index([changeRevisionId])
+  @@index([blastRadiusAnalysisId])
+  @@index([status])
+  @@index([decision])
+  @@index([createdAt])
+  @@map("release_safety_assessments")
+}
+
+/// Verifiable, deterministic safety signal contributing to a Release Safety evaluation.
+model ReleaseSafetySignal {
+  id                  String                      @id @default(uuid())
+  organizationId      String                      @map("organization_id")
+  assessmentId        String                      @map("assessment_id")
+  ruleId              String                      @map("rule_id")
+  ruleVersion         String                      @map("rule_version")
+  category            ReleaseSafetySignalCategory
+  severity            ReleaseSafetySignalSeverity
+  scoreDelta          Int                         @map("score_delta")
+  blocking            Boolean                     @default(false)
+  requiresReview      Boolean                     @default(false) @map("requires_review")
+  title               String
+  description         String
+  evidenceType        String                      @map("evidence_type")
+  evidenceReferenceId String?                     @map("evidence_reference_id")
+  evidenceStableKey   String?                     @map("evidence_stable_key")
+  evidenceJson        Json                        @default("{}") @map("evidence_json")
+  createdAt           DateTime                    @default(now()) @map("created_at")
+  organization        Organization                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  assessment          ReleaseSafetyAssessment     @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([assessmentId])
+  @@index([ruleId])
+  @@index([severity])
+  @@index([category])
+  @@map("release_safety_signals")
 }

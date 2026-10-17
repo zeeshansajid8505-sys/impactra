@@ -3,7 +3,9 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
+  Optional,
 } from '@nestjs/common';
+import { ReleaseSafetyAnalysisService } from '../../release-safety/services/release-safety-analysis.service';
 import { DatabaseService } from '../../database/database.service';
 import { BlastRadiusQueueService } from '../queue/blast-radius-queue.service';
 import {
@@ -35,6 +37,8 @@ export class BlastRadiusAnalysisService {
     private readonly queueService: BlastRadiusQueueService,
     private readonly traversalService: BlastRadiusTraversalService,
     private readonly persistenceService: BlastRadiusPersistenceService,
+    @Optional()
+    private readonly releaseSafetyService?: ReleaseSafetyAnalysisService,
   ) {}
 
   /**
@@ -247,6 +251,15 @@ export class BlastRadiusAnalysisService {
         this.logger.log(
           `Blast-radius analysis '${analysisId}' completed: 0 roots, 0 findings.`,
         );
+
+        if (this.releaseSafetyService) {
+          await this.releaseSafetyService.autoTriggerEvaluation(
+            revision.changeSetId,
+            revision.id,
+            analysisId,
+          );
+        }
+
         return;
       }
 
@@ -341,6 +354,14 @@ export class BlastRadiusAnalysisService {
       this.logger.log(
         `Blast-radius analysis '${analysisId}' succeeded: ${roots.length} roots, ${mergedFindings.length} affected entities (${firstOrderCount} first-order, ${transitiveCount} transitive, truncated=${isTruncated}).`,
       );
+
+      if (this.releaseSafetyService) {
+        await this.releaseSafetyService.autoTriggerEvaluation(
+          revision.changeSetId,
+          revision.id,
+          analysisId,
+        );
+      }
     } catch (err: unknown) {
       const errMessage = err instanceof Error ? err.message : String(err);
       const failureCode = errMessage.startsWith('MISSING_')

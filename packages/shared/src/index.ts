@@ -104,7 +104,7 @@ export const ANALYSIS_CATEGORIES: Record<AnalysisCategory, AnalysisCategoryMetad
   },
 };
 
-export type DigitalTwinNodeType =
+export type SystemMapNodeType =
   | 'WEB'
   | 'API'
   | 'AUTH'
@@ -112,10 +112,10 @@ export type DigitalTwinNodeType =
   | 'DATABASE'
   | 'QUEUE';
 
-export interface DigitalTwinNode {
+export interface SystemMapNode {
   id: string;
   label: string;
-  type: DigitalTwinNodeType;
+  type: SystemMapNodeType;
   status: 'IDLE' | 'ANALYZING' | 'AFFECTED' | 'HEALTHY';
   dependencies: string[];
 }

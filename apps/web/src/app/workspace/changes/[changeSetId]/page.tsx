@@ -23,6 +23,8 @@ import {
   ChevronRight,
   AlertTriangle,
   Play,
+  ShieldCheck,
+  ShieldX,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import {
@@ -35,6 +37,9 @@ import {
   apiTriggerBlastRadiusAnalysis,
   apiListBlastRadiusFindings,
   apiListBlastRadiusEvidencePaths,
+  apiGetLatestReleaseSafetyAssessment,
+  apiTriggerReleaseSafetyEvaluation,
+  apiListReleaseSafetySignals,
 } from '@/lib/api-client';
 import {
   ChangeSetDto,
@@ -46,9 +51,13 @@ import {
   BlastRadiusFindingDto,
   BlastRadiusEvidencePathDto,
   BlastRadiusImpactClass,
+  ReleaseSafetyAssessmentDto,
+  ReleaseSafetySignalDto,
+  ReleaseSafetyDecision,
+  ReleaseRiskLevel,
 } from '@impactra/shared';
 
-type TabKey = 'overview' | 'files' | 'twin' | 'deltas' | 'blast-radius';
+type TabKey = 'overview' | 'files' | 'twin' | 'deltas' | 'blast-radius' | 'release-safety';
 
 async function fetchBlastFindingsData(
   organizationId: string,
@@ -110,6 +119,12 @@ export default function ChangeDetailPage({
   const [loadingPaths, setLoadingPaths] = useState<boolean>(false);
   const [triggeringBlast, setTriggeringBlast] = useState<boolean>(false);
 
+  // Release safety state
+  const [releaseSafetyAssessment, setReleaseSafetyAssessment] = useState<ReleaseSafetyAssessmentDto | null>(null);
+  const [releaseSafetySignals, setReleaseSafetySignals] = useState<ReleaseSafetySignalDto[]>([]);
+  const [loadingReleaseSafety, setLoadingReleaseSafety] = useState<boolean>(false);
+  const [triggeringReleaseSafety, setTriggeringReleaseSafety] = useState<boolean>(false);
+
   const [loading, setLoading] = useState<boolean>(true);
   const [syncing, setSyncing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -148,6 +163,21 @@ export default function ChangeDetailPage({
           }
         } catch {
           // Blast analysis may not be created yet
+        }
+
+        try {
+          const rsSummary = await apiGetLatestReleaseSafetyAssessment(organizationId, changeSetId);
+          setReleaseSafetyAssessment(rsSummary.assessment);
+          if (rsSummary.assessment?.id) {
+            const sigsRes = await apiListReleaseSafetySignals(
+              organizationId,
+              rsSummary.assessment.id,
+              { limit: 100 },
+            );
+            setReleaseSafetySignals(sigsRes.items);
+          }
+        } catch {
+          // Release safety assessment may not be created yet
         }
       }
       setError(null);
@@ -201,6 +231,25 @@ export default function ChangeDetailPage({
             }
           } catch {
             // Blast analysis may not be created yet
+          }
+
+          try {
+            const rsSummary = await apiGetLatestReleaseSafetyAssessment(organizationId, changeSetId);
+            if (!cancelled) {
+              setReleaseSafetyAssessment(rsSummary.assessment);
+              if (rsSummary.assessment?.id) {
+                const sigsRes = await apiListReleaseSafetySignals(
+                  organizationId,
+                  rsSummary.assessment.id,
+                  { limit: 100 },
+                );
+                if (!cancelled) {
+                  setReleaseSafetySignals(sigsRes.items);
+                }
+              }
+            }
+          } catch {
+            // Release safety assessment may not be created yet
           }
         }
         setError(null);
@@ -354,6 +403,22 @@ export default function ChangeDetailPage({
       setError(`Failed to trigger blast radius analysis: ${msg}`);
     } finally {
       setTriggeringBlast(false);
+    }
+  };
+
+  const handleTriggerReleaseSafety = async () => {
+    if (!organizationId || !changeSetId) return;
+    try {
+      setTriggeringReleaseSafety(true);
+      setError(null);
+      const res = await apiTriggerReleaseSafetyEvaluation(organizationId, changeSetId, { force: true });
+      setReleaseSafetyAssessment(res);
+      await refreshChangeData();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(`Failed to evaluate release safety: ${msg}`);
+    } finally {
+      setTriggeringReleaseSafety(false);
     }
   };
 
@@ -581,6 +646,19 @@ export default function ChangeDetailPage({
           <Target className="w-4 h-4" />
           Blast Radius {blastAnalysis ? `(${blastAnalysis.totalAffectedNodes})` : ''}
         </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('release-safety')}
+          className={`pb-3 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 ${
+            activeTab === 'release-safety'
+              ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
+              : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+          }`}
+        >
+          <ShieldAlert className="w-4 h-4" />
+          Release Safety {releaseSafetyAssessment ? `(${releaseSafetyAssessment.decision})` : ''}
+        </button>
       </div>
 
       {/* TAB CONTENT */}
@@ -710,6 +788,92 @@ export default function ChangeDetailPage({
               </div>
             </div>
           )}
+
+          {/* Release Safety Overview Card */}
+          <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--border)] pb-3">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                <h3 className="text-sm font-bold text-[var(--text-primary)]">
+                  Release Safety Decision & Policy Score
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveTab('release-safety')}
+                className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 self-start sm:self-auto"
+              >
+                Inspect All Signals
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {releaseSafetyAssessment ? (
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-1">
+                <div className="space-y-1">
+                  <div className="text-xs text-[var(--text-muted)] font-medium">Decision</div>
+                  <div className="pt-0.5">
+                    {releaseSafetyAssessment.decision === 'PASS' && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> PASS
+                      </span>
+                    )}
+                    {releaseSafetyAssessment.decision === 'REVIEW_REQUIRED' && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                        <AlertTriangle className="w-3.5 h-3.5" /> REVIEW REQUIRED
+                      </span>
+                    )}
+                    {releaseSafetyAssessment.decision === 'BLOCKED' && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20">
+                        <AlertCircle className="w-3.5 h-3.5" /> BLOCKED
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="text-xs text-[var(--text-muted)] font-medium">Risk Score</div>
+                  <div className="text-lg font-bold font-mono text-[var(--text-primary)]">
+                    {releaseSafetyAssessment.riskScore}/100{' '}
+                    <span className="text-xs font-normal text-[var(--text-muted)] font-sans">
+                      ({releaseSafetyAssessment.riskLevel})
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="text-xs text-[var(--text-muted)] font-medium">Evaluated Signals</div>
+                  <div className="text-lg font-bold font-mono text-[var(--text-primary)]">
+                    {releaseSafetyAssessment.signalCount}{' '}
+                    <span className="text-xs font-normal text-[var(--text-muted)] font-sans">
+                      ({releaseSafetyAssessment.blockingSignalCount} blocking)
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="text-xs text-[var(--text-muted)] font-medium">Policy Engine</div>
+                  <div className="text-xs font-mono text-[var(--text-secondary)] pt-1">
+                    {releaseSafetyAssessment.policyVersion}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between py-2 text-xs text-[var(--text-muted)]">
+                <span>No release safety evaluation recorded yet.</span>
+                {canAnalyzeBlastRadius && (
+                  <button
+                    type="button"
+                    onClick={handleTriggerReleaseSafety}
+                    disabled={triggeringReleaseSafety}
+                    className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium"
+                  >
+                    {triggeringReleaseSafety ? 'Evaluating...' : 'Evaluate Release Safety'}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -1274,6 +1438,243 @@ export default function ChangeDetailPage({
                 )}
               </div>
             </>
+          )}
+        </div>
+      )}
+
+      {/* 6. RELEASE SAFETY */}
+      {activeTab === 'release-safety' && (
+        <div className="space-y-6">
+          {/* Header Controls & Summary */}
+          <div className="p-6 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] space-y-5">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[var(--border)] pb-4">
+              <div>
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                  <ShieldAlert className="w-4 h-4" />
+                  <span>Deterministic Release Safety Gate</span>
+                </div>
+                <h3 className="text-xl font-bold text-[var(--text-primary)] mt-1">
+                  Policy Evaluation & Release Decision
+                </h3>
+                <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                  Explainable safety score derived from graph blast-radius, code churn breadth, and dependency severance.
+                </p>
+              </div>
+
+              {canAnalyzeBlastRadius && (
+                <button
+                  type="button"
+                  onClick={handleTriggerReleaseSafety}
+                  disabled={triggeringReleaseSafety}
+                  className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition-colors disabled:opacity-50 self-start md:self-auto"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${triggeringReleaseSafety ? 'animate-spin' : ''}`} />
+                  {triggeringReleaseSafety ? 'Evaluating Policy...' : 'Re-evaluate Release Safety'}
+                </button>
+              )}
+            </div>
+
+            {/* Assessment Status / Score Card */}
+            {releaseSafetyAssessment ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-1">
+                    <div className="text-xs font-medium text-[var(--text-muted)]">Release Decision</div>
+                    <div className="pt-1">
+                      {releaseSafetyAssessment.decision === 'PASS' && (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                          <ShieldCheck className="w-4 h-4" /> PASS
+                        </span>
+                      )}
+                      {releaseSafetyAssessment.decision === 'REVIEW_REQUIRED' && (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                          <AlertTriangle className="w-4 h-4" /> REVIEW REQUIRED
+                        </span>
+                      )}
+                      {releaseSafetyAssessment.decision === 'BLOCKED' && (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                          <ShieldX className="w-4 h-4" /> BLOCKED
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-1">
+                    <div className="text-xs font-medium text-[var(--text-muted)]">Risk Score & Level</div>
+                    <div className="text-xl font-bold font-mono text-[var(--text-primary)]">
+                      {releaseSafetyAssessment.riskScore}
+                      <span className="text-xs font-normal text-[var(--text-muted)] font-sans">/100</span>
+                    </div>
+                    <div className="text-xs font-medium text-[var(--text-secondary)] font-mono">
+                      Level: {releaseSafetyAssessment.riskLevel}
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-1">
+                    <div className="text-xs font-medium text-[var(--text-muted)]">Rule Signals</div>
+                    <div className="text-xl font-bold font-mono text-[var(--text-primary)]">
+                      {releaseSafetyAssessment.signalCount}
+                    </div>
+                    <div className="text-xs text-[var(--text-muted)]">
+                      {releaseSafetyAssessment.blockingSignalCount} blocking · {releaseSafetyAssessment.reviewSignalCount} review
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-1">
+                    <div className="text-xs font-medium text-[var(--text-muted)]">Policy Engine</div>
+                    <div className="text-xs font-mono text-[var(--text-secondary)] pt-1 truncate">
+                      {releaseSafetyAssessment.policyVersion}
+                    </div>
+                    <div className="text-[11px] text-[var(--text-muted)]">
+                      Updated: {new Date(releaseSafetyAssessment.updatedAt).toLocaleTimeString()}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Progress bar showing score relative to thresholds */}
+                <div className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-2">
+                  <div className="flex justify-between items-center text-xs font-medium">
+                    <span className="text-[var(--text-muted)]">Safety Policy Spectrum</span>
+                    <span className="font-mono text-[var(--text-primary)]">
+                      Score: {releaseSafetyAssessment.riskScore} / 100
+                    </span>
+                  </div>
+                  <div className="w-full bg-[var(--surface-raised)] rounded-full h-2.5 overflow-hidden border border-[var(--border)] relative">
+                    <div
+                      className={`h-2.5 rounded-full transition-all duration-300 ${
+                        releaseSafetyAssessment.riskScore >= 75
+                          ? 'bg-rose-500'
+                          : releaseSafetyAssessment.riskScore >= 40
+                          ? 'bg-amber-500'
+                          : 'bg-emerald-500'
+                      }`}
+                      style={{ width: `${Math.min(100, Math.max(5, releaseSafetyAssessment.riskScore))}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-[10px] text-[var(--text-muted)] font-mono">
+                    <span>0: Safe (Pass)</span>
+                    <span>39: Review Boundary</span>
+                    <span>74: Block Boundary</span>
+                    <span>100: Critical</span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="p-8 text-center text-sm text-[var(--text-muted)] space-y-3">
+                <ShieldCheck className="w-8 h-8 text-[var(--text-muted)] mx-auto" />
+                <p>No Release Safety assessment has been run for this revision yet.</p>
+                {canAnalyzeBlastRadius && (
+                  <button
+                    type="button"
+                    onClick={handleTriggerReleaseSafety}
+                    disabled={triggeringReleaseSafety}
+                    className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs"
+                  >
+                    {triggeringReleaseSafety ? 'Evaluating Policy...' : 'Run Release Safety Evaluation'}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Signals Table */}
+          {releaseSafetyAssessment && (
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden shadow-sm space-y-4 p-5">
+              <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
+                <div className="flex items-center gap-2">
+                  <h4 className="text-sm font-bold text-[var(--text-primary)]">
+                    Contributing Rule Signals ({releaseSafetySignals.length})
+                  </h4>
+                  <span className="text-xs text-[var(--text-muted)]">
+                    Sorted by blocking priority, severity, and score delta
+                  </span>
+                </div>
+              </div>
+
+              {releaseSafetySignals.length === 0 ? (
+                <div className="p-8 text-center text-sm text-emerald-600 dark:text-emerald-400">
+                  <CheckCircle2 className="w-8 h-8 mx-auto mb-2 opacity-80" />
+                  <p className="font-semibold">Zero Risk Signals Detected</p>
+                  <p className="text-xs text-[var(--text-muted)] mt-1">
+                    This change revision is fully compliant with all release safety policies.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-[var(--text-secondary)]">
+                    <thead className="bg-[var(--surface-raised)] uppercase tracking-wider text-[11px] text-[var(--text-muted)] border-b border-[var(--border)]">
+                      <tr>
+                        <th className="px-4 py-3 font-semibold">Rule ID</th>
+                        <th className="px-4 py-3 font-semibold">Severity</th>
+                        <th className="px-4 py-3 font-semibold">Category</th>
+                        <th className="px-4 py-3 font-semibold">Impact</th>
+                        <th className="px-4 py-3 font-semibold">Score Δ</th>
+                        <th className="px-4 py-3 font-semibold">Description</th>
+                        <th className="px-4 py-3 font-semibold">Evidence Reference</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[var(--border)]">
+                      {releaseSafetySignals.map((signal) => (
+                        <tr key={signal.id} className="hover:bg-[var(--surface-raised)]/50 transition-colors">
+                          <td className="px-4 py-3 font-mono font-bold text-[var(--text-primary)]">
+                            {signal.ruleId}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${
+                                signal.severity === 'CRITICAL'
+                                  ? 'bg-rose-500/20 text-rose-500'
+                                  : signal.severity === 'HIGH'
+                                  ? 'bg-orange-500/20 text-orange-500'
+                                  : signal.severity === 'MEDIUM'
+                                  ? 'bg-amber-500/20 text-amber-500'
+                                  : 'bg-slate-500/20 text-slate-400'
+                              }`}
+                            >
+                              {signal.severity}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 font-mono text-[11px]">
+                            {signal.category}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-1">
+                              {signal.blocking && (
+                                <span className="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-400 font-bold text-[10px]">
+                                  BLOCKING
+                                </span>
+                              )}
+                              {signal.requiresReview && (
+                                <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-semibold text-[10px]">
+                                  REVIEW
+                                </span>
+                              )}
+                              {!signal.blocking && !signal.requiresReview && (
+                                <span className="text-[var(--text-muted)] text-[11px]">—</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 font-mono font-bold text-[var(--text-primary)]">
+                            +{signal.scoreDelta}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="font-semibold text-[var(--text-primary)]">
+                              {signal.title}
+                            </div>
+                            <div className="text-[var(--text-muted)] mt-0.5 max-w-sm truncate">
+                              {signal.description}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 font-mono text-[11px] text-[var(--text-muted)] truncate max-w-[200px]">
+                            {signal.evidenceStableKey || signal.evidenceReferenceId || signal.evidenceType}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           )}
         </div>
       )}

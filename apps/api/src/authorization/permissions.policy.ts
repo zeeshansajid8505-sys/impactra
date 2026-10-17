@@ -27,6 +27,8 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.CHANGE_SYNC,
     Permission.BLAST_RADIUS_READ,
     Permission.BLAST_RADIUS_ANALYZE,
+    Permission.RELEASE_SAFETY_READ,
+    Permission.RELEASE_SAFETY_EVALUATE,
   ],
   ADMIN: [
     Permission.ORGANIZATION_READ,
@@ -48,6 +50,8 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.CHANGE_SYNC,
     Permission.BLAST_RADIUS_READ,
     Permission.BLAST_RADIUS_ANALYZE,
+    Permission.RELEASE_SAFETY_READ,
+    Permission.RELEASE_SAFETY_EVALUATE,
   ],
   ARCHITECT: [
     Permission.ORGANIZATION_READ,
@@ -62,6 +66,8 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.CHANGE_SYNC,
     Permission.BLAST_RADIUS_READ,
     Permission.BLAST_RADIUS_ANALYZE,
+    Permission.RELEASE_SAFETY_READ,
+    Permission.RELEASE_SAFETY_EVALUATE,
   ],
   SECURITY_ENGINEER: [
     Permission.ORGANIZATION_READ,
@@ -73,6 +79,7 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.DIGITAL_TWIN_READ,
     Permission.CHANGE_READ,
     Permission.BLAST_RADIUS_READ,
+    Permission.RELEASE_SAFETY_READ,
   ],
   DEVELOPER: [
     Permission.ORGANIZATION_READ,
@@ -87,6 +94,8 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.CHANGE_SYNC,
     Permission.BLAST_RADIUS_READ,
     Permission.BLAST_RADIUS_ANALYZE,
+    Permission.RELEASE_SAFETY_READ,
+    Permission.RELEASE_SAFETY_EVALUATE,
   ],
   RELEASE_MANAGER: [
     Permission.ORGANIZATION_READ,
@@ -101,6 +110,8 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.CHANGE_SYNC,
     Permission.BLAST_RADIUS_READ,
     Permission.BLAST_RADIUS_ANALYZE,
+    Permission.RELEASE_SAFETY_READ,
+    Permission.RELEASE_SAFETY_EVALUATE,
   ],
   QA_ENGINEER: [
     Permission.ORGANIZATION_READ,
@@ -112,6 +123,7 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.DIGITAL_TWIN_READ,
     Permission.CHANGE_READ,
     Permission.BLAST_RADIUS_READ,
+    Permission.RELEASE_SAFETY_READ,
   ],
   AUDITOR: [
     Permission.ORGANIZATION_READ,
@@ -123,6 +135,7 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.DIGITAL_TWIN_READ,
     Permission.CHANGE_READ,
     Permission.BLAST_RADIUS_READ,
+    Permission.RELEASE_SAFETY_READ,
   ],
   VIEWER: [
     Permission.ORGANIZATION_READ,
@@ -134,6 +147,7 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.DIGITAL_TWIN_READ,
     Permission.CHANGE_READ,
     Permission.BLAST_RADIUS_READ,
+    Permission.RELEASE_SAFETY_READ,
   ],
 };
 

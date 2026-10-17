@@ -12,12 +12,16 @@ import { BlastRadiusAnalysisService } from './services/blast-radius-analysis.ser
 import { BlastRadiusProcessor } from './blast-radius.processor';
 import { OrganizationBlastRadiusController } from './controllers/organization-blast-radius.controller';
 
+import { forwardRef } from '@nestjs/common';
+import { ReleaseSafetyModule } from '../release-safety/release-safety.module';
+
 @Module({
   imports: [
     DatabaseModule,
     OrganizationsModule,
     SessionsModule,
     CacheModule,
+    forwardRef(() => ReleaseSafetyModule),
     BullModule.registerQueue({
       name: 'blast-radius-analysis',
     }),

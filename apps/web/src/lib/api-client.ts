@@ -46,6 +46,17 @@ import {
   BlastRadiusFindingsResponse,
   BlastRadiusEvidencePathsResponse,
   BlastRadiusAnalysesListResponse,
+  ReleaseSafetyAssessmentDto,
+  ReleaseSafetySignalDto,
+  ReleaseSafetyLatestResponseDto,
+  ReleaseSafetySignalsResponseDto,
+  ReleaseSafetyAssessmentsListResponseDto,
+  TriggerReleaseSafetyEvaluationDto,
+  ReleaseSafetyDecision,
+  ReleaseRiskLevel,
+  ReleaseSafetySignalCategory,
+  ReleaseSafetySignalSeverity,
+  ReleaseSafetyAssessmentStatus,
 } from '@impactra/shared';
 
 export function getApiBaseUrl(): string {
@@ -973,4 +984,128 @@ export async function apiListOrganizationBlastRadiusAnalyses(
     },
   );
   return handleResponse<BlastRadiusAnalysesListResponse>(res);
+}
+
+export async function apiTriggerReleaseSafetyEvaluation(
+  organizationId: string,
+  changeSetId: string,
+  body?: TriggerReleaseSafetyEvaluationDto,
+): Promise<ReleaseSafetyAssessmentDto> {
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/changes/${changeSetId}/release-safety/evaluate`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+      body: JSON.stringify(body || {}),
+    },
+  );
+  return handleResponse<ReleaseSafetyAssessmentDto>(res);
+}
+
+export async function apiGetLatestReleaseSafetyAssessment(
+  organizationId: string,
+  changeSetId: string,
+): Promise<ReleaseSafetyLatestResponseDto> {
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/changes/${changeSetId}/release-safety/latest`,
+    {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+    },
+  );
+  return handleResponse<ReleaseSafetyLatestResponseDto>(res);
+}
+
+export async function apiGetReleaseSafetyAssessment(
+  organizationId: string,
+  assessmentId: string,
+): Promise<ReleaseSafetyAssessmentDto> {
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/release-safety/assessments/${assessmentId}`,
+    {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+    },
+  );
+  return handleResponse<ReleaseSafetyAssessmentDto>(res);
+}
+
+export async function apiListReleaseSafetySignals(
+  organizationId: string,
+  assessmentId: string,
+  query?: {
+    page?: number;
+    limit?: number;
+    category?: string;
+    severity?: string;
+    blocking?: boolean;
+    requiresReview?: boolean;
+  },
+): Promise<ReleaseSafetySignalsResponseDto> {
+  const params = new URLSearchParams();
+  if (query?.page) params.set('page', String(query.page));
+  if (query?.limit) params.set('limit', String(query.limit));
+  if (query?.category) params.set('category', query.category);
+  if (query?.severity) params.set('severity', query.severity);
+  if (query?.blocking !== undefined) params.set('blocking', String(query.blocking));
+  if (query?.requiresReview !== undefined) params.set('requiresReview', String(query.requiresReview));
+
+  const qs = params.toString() ? `?${params.toString()}` : '';
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/release-safety/assessments/${assessmentId}/signals${qs}`,
+    {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+    },
+  );
+  return handleResponse<ReleaseSafetySignalsResponseDto>(res);
+}
+
+export async function apiListOrganizationReleaseSafetyAssessments(
+  organizationId: string,
+  query?: {
+    page?: number;
+    limit?: number;
+    decision?: string;
+    riskLevel?: string;
+    status?: string;
+  },
+): Promise<ReleaseSafetyAssessmentsListResponseDto> {
+  const params = new URLSearchParams();
+  if (query?.page) params.set('page', String(query.page));
+  if (query?.limit) params.set('limit', String(query.limit));
+  if (query?.decision) params.set('decision', query.decision);
+  if (query?.riskLevel) params.set('riskLevel', query.riskLevel);
+  if (query?.status) params.set('status', query.status);
+
+  const qs = params.toString() ? `?${params.toString()}` : '';
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/release-safety/assessments${qs}`,
+    {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+    },
+  );
+  return handleResponse<ReleaseSafetyAssessmentsListResponseDto>(res);
 }

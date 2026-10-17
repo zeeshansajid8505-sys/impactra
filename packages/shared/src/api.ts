@@ -805,3 +805,133 @@ export interface BlastRadiusAnalysesListResponse {
   pageSize?: number;
   totalPages: number;
 }
+
+// ==========================================
+// Phase 08: Deterministic Release Safety Contracts
+// ==========================================
+
+export const ReleaseSafetyAssessmentStatus = {
+  QUEUED: 'QUEUED',
+  RUNNING: 'RUNNING',
+  SUCCEEDED: 'SUCCEEDED',
+  FAILED: 'FAILED',
+} as const;
+export type ReleaseSafetyAssessmentStatus =
+  (typeof ReleaseSafetyAssessmentStatus)[keyof typeof ReleaseSafetyAssessmentStatus];
+
+export const ReleaseSafetyDecision = {
+  PASS: 'PASS',
+  REVIEW_REQUIRED: 'REVIEW_REQUIRED',
+  BLOCKED: 'BLOCKED',
+} as const;
+export type ReleaseSafetyDecision =
+  (typeof ReleaseSafetyDecision)[keyof typeof ReleaseSafetyDecision];
+
+export const ReleaseRiskLevel = {
+  LOW: 'LOW',
+  MEDIUM: 'MEDIUM',
+  HIGH: 'HIGH',
+  CRITICAL: 'CRITICAL',
+} as const;
+export type ReleaseRiskLevel =
+  (typeof ReleaseRiskLevel)[keyof typeof ReleaseRiskLevel];
+
+export const ReleaseSafetySignalSeverity = {
+  INFO: 'INFO',
+  LOW: 'LOW',
+  MEDIUM: 'MEDIUM',
+  HIGH: 'HIGH',
+  CRITICAL: 'CRITICAL',
+} as const;
+export type ReleaseSafetySignalSeverity =
+  (typeof ReleaseSafetySignalSeverity)[keyof typeof ReleaseSafetySignalSeverity];
+
+export const ReleaseSafetySignalCategory = {
+  CHANGE_SIZE: 'CHANGE_SIZE',
+  BLAST_RADIUS: 'BLAST_RADIUS',
+  DEPENDENCY: 'DEPENDENCY',
+  ARCHITECTURE: 'ARCHITECTURE',
+  ANALYSIS_QUALITY: 'ANALYSIS_QUALITY',
+} as const;
+export type ReleaseSafetySignalCategory =
+  (typeof ReleaseSafetySignalCategory)[keyof typeof ReleaseSafetySignalCategory];
+
+export interface ReleaseSafetySignalDto {
+  id: string;
+  ruleId: string;
+  ruleVersion: string;
+  category: ReleaseSafetySignalCategory;
+  severity: ReleaseSafetySignalSeverity;
+  scoreDelta: number;
+  blocking: boolean;
+  requiresReview: boolean;
+  title: string;
+  description: string;
+  evidenceType: string;
+  evidenceReferenceId: string | null;
+  evidenceStableKey: string | null;
+  evidenceJson: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface ReleaseSafetyAssessmentDto {
+  id: string;
+  organizationId: string;
+  changeSetId: string;
+  changeRevisionId: string;
+  blastRadiusAnalysisId: string;
+  status: ReleaseSafetyAssessmentStatus;
+  policyVersion: string;
+  riskScore: number;
+  riskLevel: ReleaseRiskLevel;
+  decision: ReleaseSafetyDecision;
+  signalCount: number;
+  blockingSignalCount: number;
+  reviewSignalCount: number;
+  startedAt: string | null;
+  completedAt: string | null;
+  failedAt: string | null;
+  failureCode: string | null;
+  failureMessage: string | null;
+  createdAt: string;
+  updatedAt: string;
+  changeSet?: ChangeSetDto;
+  changeRevision?: ChangeRevisionDto;
+  blastRadiusAnalysis?: BlastRadiusAnalysisDto;
+  signals?: ReleaseSafetySignalDto[];
+}
+
+export interface ReleaseSafetyLatestResponseDto {
+  assessment: ReleaseSafetyAssessmentDto | null;
+  summary?: {
+    riskScore: number;
+    riskLevel: ReleaseRiskLevel;
+    decision: ReleaseSafetyDecision;
+    signalCount: number;
+    blockingSignalCount: number;
+    reviewSignalCount: number;
+    policyVersion: string;
+  } | null;
+}
+
+export interface ReleaseSafetySignalsResponseDto {
+  items: ReleaseSafetySignalDto[];
+  total: number;
+  page: number;
+  limit: number;
+  pageSize?: number;
+  totalPages: number;
+}
+
+export interface ReleaseSafetyAssessmentsListResponseDto {
+  items: ReleaseSafetyAssessmentDto[];
+  total: number;
+  page: number;
+  limit: number;
+  pageSize?: number;
+  totalPages: number;
+}
+
+export interface TriggerReleaseSafetyEvaluationDto {
+  force?: boolean;
+}

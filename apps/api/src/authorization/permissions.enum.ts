@@ -19,4 +19,6 @@ export enum Permission {
   CHANGE_SYNC = 'change.sync',
   BLAST_RADIUS_READ = 'blast_radius.read',
   BLAST_RADIUS_ANALYZE = 'blast_radius.analyze',
+  RELEASE_SAFETY_READ = 'release_safety.read',
+  RELEASE_SAFETY_EVALUATE = 'release_safety.evaluate',
 }

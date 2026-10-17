@@ -17,6 +17,7 @@ import { GithubModule } from './github/github.module';
 import { IngestionModule } from './ingestion/ingestion.module';
 import { ChangesModule } from './changes/changes.module';
 import { BlastRadiusModule } from './blast-radius/blast-radius.module';
+import { ReleaseSafetyModule } from './release-safety/release-safety.module';
 import { BullModule } from '@nestjs/bullmq';
 import { ConfigService } from '@nestjs/config';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
@@ -67,6 +68,7 @@ import { LoggingMiddleware } from './common/middleware/logging.middleware';
     IngestionModule,
     ChangesModule,
     BlastRadiusModule,
+    ReleaseSafetyModule,
   ],
 })
 export class AppModule implements NestModule {

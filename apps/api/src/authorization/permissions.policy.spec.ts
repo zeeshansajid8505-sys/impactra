@@ -120,4 +120,39 @@ describe('RBAC Permissions Policy — Ingestion & Digital Twin Matrix', () => {
       }
     });
   });
+
+  describe('Permission.RELEASE_SAFETY_READ', () => {
+    it('allows release safety read access to all organization member roles', () => {
+      for (const role of allRoles) {
+        expect(hasPermission(role, Permission.RELEASE_SAFETY_READ)).toBe(true);
+      }
+    });
+  });
+
+  describe('Permission.RELEASE_SAFETY_EVALUATE', () => {
+    it('allows OWNER, ADMIN, ARCHITECT, DEVELOPER, RELEASE_MANAGER', () => {
+      const allowedRoles: MembershipRole[] = [
+        'OWNER',
+        'ADMIN',
+        'ARCHITECT',
+        'DEVELOPER',
+        'RELEASE_MANAGER',
+      ];
+      for (const role of allowedRoles) {
+        expect(hasPermission(role, Permission.RELEASE_SAFETY_EVALUATE)).toBe(true);
+      }
+    });
+
+    it('denies QA_ENGINEER, SECURITY_ENGINEER, AUDITOR, VIEWER', () => {
+      const deniedRoles: MembershipRole[] = [
+        'QA_ENGINEER',
+        'SECURITY_ENGINEER',
+        'AUDITOR',
+        'VIEWER',
+      ];
+      for (const role of deniedRoles) {
+        expect(hasPermission(role, Permission.RELEASE_SAFETY_EVALUATE)).toBe(false);
+      }
+    });
+  });
 });
