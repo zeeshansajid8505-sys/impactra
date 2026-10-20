@@ -57,6 +57,10 @@ import {
   ReleaseSafetySignalCategory,
   ReleaseSafetySignalSeverity,
   ReleaseSafetyAssessmentStatus,
+  GitHubCheckPublicationDto,
+  GitHubCheckLatestResponseDto,
+  GitHubCheckPublishResponseDto,
+  PublishGitHubCheckRequestDto,
 } from '@impactra/shared';
 
 export function getApiBaseUrl(): string {
@@ -1108,4 +1112,71 @@ export async function apiListOrganizationReleaseSafetyAssessments(
     },
   );
   return handleResponse<ReleaseSafetyAssessmentsListResponseDto>(res);
+}
+
+// ==========================================
+// GitHub Checks & Release Gate API
+// ==========================================
+
+export async function apiGetLatestGitHubCheck(
+  organizationId: string,
+  changeSetId: string,
+): Promise<GitHubCheckLatestResponseDto> {
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/changes/${changeSetId}/github-check/latest`,
+    {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+    },
+  );
+  return handleResponse<GitHubCheckLatestResponseDto>(res);
+}
+
+export async function apiGetGitHubCheckById(
+  organizationId: string,
+  changeSetId: string,
+  publicationId: string,
+): Promise<GitHubCheckPublicationDto> {
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/changes/${changeSetId}/github-check/${publicationId}`,
+    {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+    },
+  );
+  return handleResponse<GitHubCheckPublicationDto>(res);
+}
+
+export async function apiPublishGitHubCheck(
+  organizationId: string,
+  changeSetId: string,
+  assessmentId?: string,
+): Promise<GitHubCheckPublishResponseDto> {
+  const body: PublishGitHubCheckRequestDto = {};
+  if (assessmentId) {
+    body.assessmentId = assessmentId;
+  }
+
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/changes/${changeSetId}/github-check/publish`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+      body: JSON.stringify(body),
+    },
+  );
+  return handleResponse<GitHubCheckPublishResponseDto>(res);
 }

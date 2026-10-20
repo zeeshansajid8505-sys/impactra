@@ -1,9 +1,10 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { DatabaseModule } from '../database/database.module';
 import { OrganizationsModule } from '../organizations/organizations.module';
 import { SessionsModule } from '../sessions/sessions.module';
 import { CacheModule } from '../cache/cache.module';
+import { GitHubChecksModule } from '../github-checks/github-checks.module';
 import { ReleaseSafetyRuleEngineService } from './services/release-safety-rule-engine.service';
 import { ReleaseSafetyScoringService } from './services/release-safety-scoring.service';
 import { ReleaseSafetyPersistenceService } from './services/release-safety-persistence.service';
@@ -21,6 +22,7 @@ import { OrganizationReleaseSafetyController } from './controllers/organization-
     BullModule.registerQueue({
       name: 'release-safety-analysis',
     }),
+    forwardRef(() => GitHubChecksModule),
   ],
   controllers: [OrganizationReleaseSafetyController],
   providers: [

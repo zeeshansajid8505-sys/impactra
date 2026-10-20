@@ -19,6 +19,11 @@ export class Octokit {
       get: jest.Mock;
       listFiles: jest.Mock;
     };
+    checks: {
+      create: jest.Mock;
+      update: jest.Mock;
+      get: jest.Mock;
+    };
   };
 
   constructor(public options: any = {}) {
@@ -83,6 +88,32 @@ export class Octokit {
         }),
         listFiles: jest.fn().mockResolvedValue({
           data: [],
+        }),
+      },
+      checks: {
+        create: jest.fn().mockResolvedValue({
+          data: {
+            id: 123456789,
+            html_url: 'https://github.com/test-org/test-repo/runs/123456789',
+            status: 'completed',
+            conclusion: 'success',
+          },
+        }),
+        update: jest.fn().mockResolvedValue({
+          data: {
+            id: 123456789,
+            html_url: 'https://github.com/test-org/test-repo/runs/123456789',
+            status: 'completed',
+            conclusion: 'success',
+          },
+        }),
+        get: jest.fn().mockResolvedValue({
+          data: {
+            id: 123456789,
+            html_url: 'https://github.com/test-org/test-repo/runs/123456789',
+            status: 'completed',
+            conclusion: 'success',
+          },
         }),
       },
     };

@@ -72,7 +72,11 @@ export type Permission =
   | 'change.read'
   | 'change.sync'
   | 'blast_radius.read'
-  | 'blast_radius.analyze';
+  | 'blast_radius.analyze'
+  | 'release_safety.read'
+  | 'release_safety.evaluate'
+  | 'github_check.read'
+  | 'github_check.publish';
 
 export interface UserDto {
   id: string;
@@ -934,4 +938,77 @@ export interface ReleaseSafetyAssessmentsListResponseDto {
 
 export interface TriggerReleaseSafetyEvaluationDto {
   force?: boolean;
+}
+
+// ==========================================
+// Phase 09: GitHub Checks & Release Gate Integration
+// ==========================================
+
+export const GitHubCheckPublicationStatus = {
+  QUEUED: 'QUEUED',
+  RUNNING: 'RUNNING',
+  SUCCEEDED: 'SUCCEEDED',
+  FAILED: 'FAILED',
+  SKIPPED: 'SKIPPED',
+} as const;
+export type GitHubCheckPublicationStatus =
+  (typeof GitHubCheckPublicationStatus)[keyof typeof GitHubCheckPublicationStatus];
+
+export const GitHubCheckConclusion = {
+  SUCCESS: 'SUCCESS',
+  ACTION_REQUIRED: 'ACTION_REQUIRED',
+  FAILURE: 'FAILURE',
+} as const;
+export type GitHubCheckConclusion =
+  (typeof GitHubCheckConclusion)[keyof typeof GitHubCheckConclusion];
+
+export interface GitHubCheckPublicationDto {
+  id: string;
+  organizationId: string;
+  repositoryConnectionId: string;
+  changeSetId: string;
+  changeRevisionId: string;
+  releaseSafetyAssessmentId: string;
+  githubInstallationId: string;
+  headSha: string;
+  checkName: string;
+  externalId: string;
+  githubCheckRunId: string | null;
+  remoteCheckUrl: string | null;
+  status: GitHubCheckPublicationStatus;
+  conclusion: GitHubCheckConclusion | null;
+  detailsUrl: string | null;
+  attemptCount: number;
+  queuedAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  publishedAt: string | null;
+  failedAt: string | null;
+  failureCode: string | null;
+  failureMessage: string | null;
+  createdAt: string;
+  updatedAt: string;
+  releaseSafetyAssessment?: ReleaseSafetyAssessmentDto;
+}
+
+export interface GitHubCheckLatestResponseDto {
+  publication: GitHubCheckPublicationDto | null;
+  summary?: {
+    checkName: string;
+    status: GitHubCheckPublicationStatus;
+    conclusion: GitHubCheckConclusion | null;
+    headSha: string;
+    remoteCheckUrl: string | null;
+    publishedAt: string | null;
+  } | null;
+}
+
+export interface GitHubCheckPublishResponseDto {
+  publication: GitHubCheckPublicationDto;
+  queued: boolean;
+  message: string;
+}
+
+export interface PublishGitHubCheckRequestDto {
+  assessmentId?: string;
 }

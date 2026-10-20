@@ -155,4 +155,39 @@ describe('RBAC Permissions Policy — Ingestion & Digital Twin Matrix', () => {
       }
     });
   });
+
+  describe('Permission.GITHUB_CHECK_READ', () => {
+    it('allows github check read access to all organization member roles', () => {
+      for (const role of allRoles) {
+        expect(hasPermission(role, Permission.GITHUB_CHECK_READ)).toBe(true);
+      }
+    });
+  });
+
+  describe('Permission.GITHUB_CHECK_PUBLISH', () => {
+    it('allows OWNER, ADMIN, RELEASE_MANAGER', () => {
+      const allowedRoles: MembershipRole[] = [
+        'OWNER',
+        'ADMIN',
+        'RELEASE_MANAGER',
+      ];
+      for (const role of allowedRoles) {
+        expect(hasPermission(role, Permission.GITHUB_CHECK_PUBLISH)).toBe(true);
+      }
+    });
+
+    it('denies ARCHITECT, DEVELOPER, QA_ENGINEER, SECURITY_ENGINEER, AUDITOR, VIEWER', () => {
+      const deniedRoles: MembershipRole[] = [
+        'ARCHITECT',
+        'DEVELOPER',
+        'QA_ENGINEER',
+        'SECURITY_ENGINEER',
+        'AUDITOR',
+        'VIEWER',
+      ];
+      for (const role of deniedRoles) {
+        expect(hasPermission(role, Permission.GITHUB_CHECK_PUBLISH)).toBe(false);
+      }
+    });
+  });
 });

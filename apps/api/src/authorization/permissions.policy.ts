@@ -29,6 +29,8 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.BLAST_RADIUS_ANALYZE,
     Permission.RELEASE_SAFETY_READ,
     Permission.RELEASE_SAFETY_EVALUATE,
+    Permission.GITHUB_CHECK_READ,
+    Permission.GITHUB_CHECK_PUBLISH,
   ],
   ADMIN: [
     Permission.ORGANIZATION_READ,
@@ -52,6 +54,8 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.BLAST_RADIUS_ANALYZE,
     Permission.RELEASE_SAFETY_READ,
     Permission.RELEASE_SAFETY_EVALUATE,
+    Permission.GITHUB_CHECK_READ,
+    Permission.GITHUB_CHECK_PUBLISH,
   ],
   ARCHITECT: [
     Permission.ORGANIZATION_READ,
@@ -68,6 +72,7 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.BLAST_RADIUS_ANALYZE,
     Permission.RELEASE_SAFETY_READ,
     Permission.RELEASE_SAFETY_EVALUATE,
+    Permission.GITHUB_CHECK_READ,
   ],
   SECURITY_ENGINEER: [
     Permission.ORGANIZATION_READ,
@@ -80,6 +85,7 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.CHANGE_READ,
     Permission.BLAST_RADIUS_READ,
     Permission.RELEASE_SAFETY_READ,
+    Permission.GITHUB_CHECK_READ,
   ],
   DEVELOPER: [
     Permission.ORGANIZATION_READ,
@@ -96,6 +102,7 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.BLAST_RADIUS_ANALYZE,
     Permission.RELEASE_SAFETY_READ,
     Permission.RELEASE_SAFETY_EVALUATE,
+    Permission.GITHUB_CHECK_READ,
   ],
   RELEASE_MANAGER: [
     Permission.ORGANIZATION_READ,
@@ -112,6 +119,8 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.BLAST_RADIUS_ANALYZE,
     Permission.RELEASE_SAFETY_READ,
     Permission.RELEASE_SAFETY_EVALUATE,
+    Permission.GITHUB_CHECK_READ,
+    Permission.GITHUB_CHECK_PUBLISH,
   ],
   QA_ENGINEER: [
     Permission.ORGANIZATION_READ,
@@ -124,6 +133,7 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.CHANGE_READ,
     Permission.BLAST_RADIUS_READ,
     Permission.RELEASE_SAFETY_READ,
+    Permission.GITHUB_CHECK_READ,
   ],
   AUDITOR: [
     Permission.ORGANIZATION_READ,
@@ -136,6 +146,7 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.CHANGE_READ,
     Permission.BLAST_RADIUS_READ,
     Permission.RELEASE_SAFETY_READ,
+    Permission.GITHUB_CHECK_READ,
   ],
   VIEWER: [
     Permission.ORGANIZATION_READ,
@@ -148,6 +159,7 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.CHANGE_READ,
     Permission.BLAST_RADIUS_READ,
     Permission.RELEASE_SAFETY_READ,
+    Permission.GITHUB_CHECK_READ,
   ],
 };
 

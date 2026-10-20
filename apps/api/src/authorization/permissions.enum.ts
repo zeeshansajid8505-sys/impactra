@@ -21,4 +21,6 @@ export enum Permission {
   BLAST_RADIUS_ANALYZE = 'blast_radius.analyze',
   RELEASE_SAFETY_READ = 'release_safety.read',
   RELEASE_SAFETY_EVALUATE = 'release_safety.evaluate',
+  GITHUB_CHECK_READ = 'github_check.read',
+  GITHUB_CHECK_PUBLISH = 'github_check.publish',
 }

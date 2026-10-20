@@ -3,12 +3,16 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
+  Optional,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
 import { ReleaseSafetyQueueService } from '../queue/release-safety-queue.service';
 import { ReleaseSafetyRuleEngineService } from './release-safety-rule-engine.service';
 import { ReleaseSafetyScoringService } from './release-safety-scoring.service';
 import { ReleaseSafetyPersistenceService } from './release-safety-persistence.service';
+import { GitHubCheckPublicationService } from '../../github-checks/services/github-check-publication.service';
 import {
   RELEASE_SAFETY_POLICY_VERSION,
 } from '../policy/release-safety-policy';
@@ -24,6 +28,9 @@ export class ReleaseSafetyAnalysisService {
     private readonly ruleEngineService: ReleaseSafetyRuleEngineService,
     private readonly scoringService: ReleaseSafetyScoringService,
     private readonly persistenceService: ReleaseSafetyPersistenceService,
+    @Optional()
+    @Inject(forwardRef(() => GitHubCheckPublicationService))
+    private readonly gitHubCheckPublicationService?: GitHubCheckPublicationService,
   ) {}
 
   /**
@@ -278,6 +285,19 @@ export class ReleaseSafetyAnalysisService {
       this.logger.log(
         `Release Safety evaluation '${assessmentId}' SUCCEEDED with decision=${scoring.decision}, score=${scoring.score}/100, signals=${signals.length}.`,
       );
+
+      // 5. Asynchronously auto-trigger GitHub Check publication
+      try {
+        if (this.gitHubCheckPublicationService) {
+          await this.gitHubCheckPublicationService.autoTriggerForAssessment(
+            assessmentId,
+          );
+        }
+      } catch (checkErr: unknown) {
+        this.logger.warn(
+          `Auto-triggering GitHub Check publication failed for '${assessmentId}': ${checkErr}`,
+        );
+      }
     } catch (err: unknown) {
       const errMessage = err instanceof Error ? err.message : String(err);
       this.logger.error(

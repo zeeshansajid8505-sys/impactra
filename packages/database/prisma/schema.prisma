@@ -73,6 +73,7 @@ model Organization {
   blastRadiusAnalyses     BlastRadiusAnalysis[]
   releaseSafetyAssessments ReleaseSafetyAssessment[]
   releaseSafetySignals    ReleaseSafetySignal[]
+  gitHubCheckPublications GitHubCheckPublication[]
 
   @@map("organizations")
 }
@@ -244,6 +245,7 @@ model RepositoryConnection {
   digitalTwins         DigitalTwinSnapshot[]
   changeSets           ChangeSet[]
   changeRevisions      ChangeRevision[]
+  gitHubCheckPublications GitHubCheckPublication[]
 
   @@unique([organizationId, githubRepositoryId])
   @@index([organizationId])
@@ -523,6 +525,7 @@ model ChangeSet {
   revisions              ChangeRevision[]
   blastRadiusAnalyses    BlastRadiusAnalysis[]
   releaseSafetyAssessments ReleaseSafetyAssessment[]
+  gitHubCheckPublications GitHubCheckPublication[]
 
   @@unique([repositoryConnectionId, pullRequestNumber])
   @@unique([repositoryConnectionId, providerPullRequestId])
@@ -571,6 +574,7 @@ model ChangeRevision {
   dependencyDeltas       DependencyDelta[]
   blastRadiusAnalyses    BlastRadiusAnalysis[]
   releaseSafetyAssessments ReleaseSafetyAssessment[]
+  gitHubCheckPublications GitHubCheckPublication[]
 
   @@unique([changeSetId, baseSha, headSha, analysisVersion])
   @@index([changeSetId])
@@ -860,6 +864,7 @@ model ReleaseSafetyAssessment {
   changeRevision        ChangeRevision                @relation(fields: [changeRevisionId], references: [id], onDelete: Cascade)
   blastRadiusAnalysis   BlastRadiusAnalysis           @relation(fields: [blastRadiusAnalysisId], references: [id], onDelete: Cascade)
   signals               ReleaseSafetySignal[]
+  gitHubCheckPublications GitHubCheckPublication[]
 
   @@unique([changeRevisionId, blastRadiusAnalysisId, policyVersion])
   @@index([organizationId])
@@ -900,4 +905,67 @@ model ReleaseSafetySignal {
   @@index([severity])
   @@index([category])
   @@map("release_safety_signals")
+}
+
+/// GitHub Check Publication Status enum.
+enum GitHubCheckPublicationStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  SKIPPED
+}
+
+/// GitHub Check Conclusion enum mapping authoritative ReleaseSafetyDecision to GitHub Check Wire conclusions.
+enum GitHubCheckConclusion {
+  SUCCESS
+  ACTION_REQUIRED
+  FAILURE
+}
+
+/// Authoritative publication of an Impactra Release Safety decision to a GitHub commit Check Run.
+model GitHubCheckPublication {
+  id                        String                       @id @default(uuid())
+  organizationId            String                       @map("organization_id")
+  repositoryConnectionId    String                       @map("repository_connection_id")
+  changeSetId               String                       @map("change_set_id")
+  changeRevisionId          String                       @map("change_revision_id")
+  releaseSafetyAssessmentId String                       @map("release_safety_assessment_id")
+  githubInstallationId      String                       @map("github_installation_id")
+  headSha                   String                       @map("head_sha")
+  checkName                 String                       @default("Impactra / Release Safety") @map("check_name")
+  externalId                String                       @map("external_id")
+  githubCheckRunId          String?                      @map("github_check_run_id")
+  remoteCheckUrl            String?                      @map("remote_check_url")
+  status                    GitHubCheckPublicationStatus @default(QUEUED)
+  conclusion                GitHubCheckConclusion?
+  detailsUrl                String?                      @map("details_url")
+  attemptCount              Int                          @default(0) @map("attempt_count")
+  queuedAt                  DateTime                     @default(now()) @map("queued_at")
+  startedAt                 DateTime?                    @map("started_at")
+  completedAt               DateTime?                    @map("completed_at")
+  publishedAt               DateTime?                    @map("published_at")
+  failedAt                  DateTime?                    @map("failed_at")
+  failureCode               String?                      @map("failure_code")
+  failureMessage            String?                      @map("failure_message")
+  createdAt                 DateTime                     @default(now()) @map("created_at")
+  updatedAt                 DateTime                     @updatedAt @map("updated_at")
+  organization              Organization                 @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  repositoryConnection      RepositoryConnection         @relation(fields: [repositoryConnectionId], references: [id], onDelete: Cascade)
+  changeSet                 ChangeSet                    @relation(fields: [changeSetId], references: [id], onDelete: Cascade)
+  changeRevision            ChangeRevision               @relation(fields: [changeRevisionId], references: [id], onDelete: Cascade)
+  releaseSafetyAssessment   ReleaseSafetyAssessment      @relation(fields: [releaseSafetyAssessmentId], references: [id], onDelete: Cascade)
+
+  @@unique([repositoryConnectionId, headSha, checkName])
+  @@index([organizationId])
+  @@index([repositoryConnectionId])
+  @@index([changeSetId])
+  @@index([changeRevisionId])
+  @@index([releaseSafetyAssessmentId])
+  @@index([status])
+  @@index([headSha])
+  @@index([externalId])
+  @@index([githubCheckRunId])
+  @@index([createdAt])
+  @@map("github_check_publications")
 }
