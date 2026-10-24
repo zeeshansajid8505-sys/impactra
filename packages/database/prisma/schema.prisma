@@ -49,6 +49,9 @@ model User {
   sentInvitations         OrganizationInvitation[]   @relation("InvitedByUser")
   githubInstallationStates GitHubInstallationState[]
   repositoryIngestions    RepositoryIngestion[]
+  requestedReleaseApprovals ReleaseApprovalRequest[] @relation("ReleaseApprovalRequestedBy")
+  resolvedReleaseApprovals  ReleaseApprovalRequest[] @relation("ReleaseApprovalResolvedBy")
+  releaseApprovalEvents     ReleaseApprovalEvent[]   @relation("ReleaseApprovalEventActor")
 
   @@map("users")
 }
@@ -74,6 +77,8 @@ model Organization {
   releaseSafetyAssessments ReleaseSafetyAssessment[]
   releaseSafetySignals    ReleaseSafetySignal[]
   gitHubCheckPublications GitHubCheckPublication[]
+  releaseApprovalRequests   ReleaseApprovalRequest[]
+  releaseApprovalEvents     ReleaseApprovalEvent[]
 
   @@map("organizations")
 }
@@ -246,6 +251,7 @@ model RepositoryConnection {
   changeSets           ChangeSet[]
   changeRevisions      ChangeRevision[]
   gitHubCheckPublications GitHubCheckPublication[]
+  releaseApprovalRequests   ReleaseApprovalRequest[]
 
   @@unique([organizationId, githubRepositoryId])
   @@index([organizationId])
@@ -526,6 +532,7 @@ model ChangeSet {
   blastRadiusAnalyses    BlastRadiusAnalysis[]
   releaseSafetyAssessments ReleaseSafetyAssessment[]
   gitHubCheckPublications GitHubCheckPublication[]
+  releaseApprovalRequests   ReleaseApprovalRequest[]
 
   @@unique([repositoryConnectionId, pullRequestNumber])
   @@unique([repositoryConnectionId, providerPullRequestId])
@@ -575,6 +582,7 @@ model ChangeRevision {
   blastRadiusAnalyses    BlastRadiusAnalysis[]
   releaseSafetyAssessments ReleaseSafetyAssessment[]
   gitHubCheckPublications GitHubCheckPublication[]
+  releaseApprovalRequests   ReleaseApprovalRequest[]
 
   @@unique([changeSetId, baseSha, headSha, analysisVersion])
   @@index([changeSetId])
@@ -865,6 +873,7 @@ model ReleaseSafetyAssessment {
   blastRadiusAnalysis   BlastRadiusAnalysis           @relation(fields: [blastRadiusAnalysisId], references: [id], onDelete: Cascade)
   signals               ReleaseSafetySignal[]
   gitHubCheckPublications GitHubCheckPublication[]
+  releaseApprovalRequest    ReleaseApprovalRequest?
 
   @@unique([changeRevisionId, blastRadiusAnalysisId, policyVersion])
   @@index([organizationId])
@@ -968,4 +977,93 @@ model GitHubCheckPublication {
   @@index([githubCheckRunId])
   @@index([createdAt])
   @@map("github_check_publications")
+}
+/// Release Approval Request Status enum.
+enum ReleaseApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  EXPIRED
+}
+
+/// Release Approval Resolution enum.
+enum ReleaseApprovalResolution {
+  APPROVE
+  REJECT
+  EXCEPTION
+}
+
+/// Release Approval Event Type enum for immutable audit history.
+enum ReleaseApprovalEventType {
+  REQUESTED
+  APPROVED
+  REJECTED
+  EXCEPTION_GRANTED
+  CANCELLED
+  EXPIRED
+}
+
+/// Deterministic, auditable release approval request governing a ReleaseSafetyAssessment.
+model ReleaseApprovalRequest {
+  id                        String                    @id @default(uuid())
+  organizationId            String                    @map("organization_id")
+  repositoryConnectionId    String                    @map("repository_connection_id")
+  changeSetId               String                    @map("change_set_id")
+  changeRevisionId          String                    @map("change_revision_id")
+  releaseSafetyAssessmentId String                    @unique @map("release_safety_assessment_id")
+  status                    ReleaseApprovalStatus     @default(PENDING)
+  requestedByUserId         String                    @map("requested_by_user_id")
+  requestedAt               DateTime                  @default(now()) @map("requested_at")
+  resolvedByUserId          String?                   @map("resolved_by_user_id")
+  resolvedAt                DateTime?                 @map("resolved_at")
+  resolution                ReleaseApprovalResolution?
+  reason                    String?
+  exceptionGranted          Boolean                   @default(false) @map("exception_granted")
+  exceptionReason           String?                   @map("exception_reason")
+  expiresAt                 DateTime?                 @map("expires_at")
+  createdAt                 DateTime                  @default(now()) @map("created_at")
+  updatedAt                 DateTime                  @updatedAt @map("updated_at")
+  organization              Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  repositoryConnection      RepositoryConnection      @relation(fields: [repositoryConnectionId], references: [id], onDelete: Cascade)
+  changeSet                 ChangeSet                 @relation(fields: [changeSetId], references: [id], onDelete: Cascade)
+  changeRevision            ChangeRevision            @relation(fields: [changeRevisionId], references: [id], onDelete: Cascade)
+  releaseSafetyAssessment   ReleaseSafetyAssessment   @relation(fields: [releaseSafetyAssessmentId], references: [id], onDelete: Cascade)
+  requestedByUser           User                      @relation("ReleaseApprovalRequestedBy", fields: [requestedByUserId], references: [id], onDelete: Cascade)
+  resolvedByUser            User?                     @relation("ReleaseApprovalResolvedBy", fields: [resolvedByUserId], references: [id], onDelete: SetNull)
+  events                    ReleaseApprovalEvent[]
+
+  @@index([organizationId])
+  @@index([repositoryConnectionId])
+  @@index([changeSetId])
+  @@index([changeRevisionId])
+  @@index([status])
+  @@index([requestedByUserId])
+  @@index([resolvedByUserId])
+  @@index([createdAt])
+  @@map("release_approval_requests")
+}
+
+/// Append-only, immutable audit event log for release approval transitions.
+model ReleaseApprovalEvent {
+  id                String                   @id @default(uuid())
+  organizationId    String                   @map("organization_id")
+  approvalRequestId String                   @map("approval_request_id")
+  eventType         ReleaseApprovalEventType @map("event_type")
+  actorUserId       String                   @map("actor_user_id")
+  previousStatus    ReleaseApprovalStatus?   @map("previous_status")
+  newStatus         ReleaseApprovalStatus    @map("new_status")
+  reason            String?
+  metadataJson      Json                     @default("{}") @map("metadata_json")
+  createdAt         DateTime                 @default(now()) @map("created_at")
+  organization      Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  approvalRequest   ReleaseApprovalRequest   @relation(fields: [approvalRequestId], references: [id], onDelete: Cascade)
+  actorUser         User                     @relation("ReleaseApprovalEventActor", fields: [actorUserId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([approvalRequestId])
+  @@index([eventType])
+  @@index([actorUserId])
+  @@index([createdAt])
+  @@map("release_approval_events")
 }

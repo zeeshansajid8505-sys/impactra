@@ -23,4 +23,8 @@ export enum Permission {
   RELEASE_SAFETY_EVALUATE = 'release_safety.evaluate',
   GITHUB_CHECK_READ = 'github_check.read',
   GITHUB_CHECK_PUBLISH = 'github_check.publish',
+  RELEASE_APPROVAL_READ = 'release_approval.read',
+  RELEASE_APPROVAL_REQUEST = 'release_approval.request',
+  RELEASE_APPROVAL_RESOLVE = 'release_approval.resolve',
+  RELEASE_APPROVAL_EXCEPTION = 'release_approval.exception',
 }

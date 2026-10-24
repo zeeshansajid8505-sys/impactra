@@ -31,6 +31,10 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.RELEASE_SAFETY_EVALUATE,
     Permission.GITHUB_CHECK_READ,
     Permission.GITHUB_CHECK_PUBLISH,
+    Permission.RELEASE_APPROVAL_READ,
+    Permission.RELEASE_APPROVAL_REQUEST,
+    Permission.RELEASE_APPROVAL_RESOLVE,
+    Permission.RELEASE_APPROVAL_EXCEPTION,
   ],
   ADMIN: [
     Permission.ORGANIZATION_READ,
@@ -56,6 +60,10 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.RELEASE_SAFETY_EVALUATE,
     Permission.GITHUB_CHECK_READ,
     Permission.GITHUB_CHECK_PUBLISH,
+    Permission.RELEASE_APPROVAL_READ,
+    Permission.RELEASE_APPROVAL_REQUEST,
+    Permission.RELEASE_APPROVAL_RESOLVE,
+    Permission.RELEASE_APPROVAL_EXCEPTION,
   ],
   ARCHITECT: [
     Permission.ORGANIZATION_READ,
@@ -73,6 +81,8 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.RELEASE_SAFETY_READ,
     Permission.RELEASE_SAFETY_EVALUATE,
     Permission.GITHUB_CHECK_READ,
+    Permission.RELEASE_APPROVAL_READ,
+    Permission.RELEASE_APPROVAL_REQUEST,
   ],
   SECURITY_ENGINEER: [
     Permission.ORGANIZATION_READ,
@@ -86,6 +96,8 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.BLAST_RADIUS_READ,
     Permission.RELEASE_SAFETY_READ,
     Permission.GITHUB_CHECK_READ,
+    Permission.RELEASE_APPROVAL_READ,
+    Permission.RELEASE_APPROVAL_REQUEST,
   ],
   DEVELOPER: [
     Permission.ORGANIZATION_READ,
@@ -103,6 +115,8 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.RELEASE_SAFETY_READ,
     Permission.RELEASE_SAFETY_EVALUATE,
     Permission.GITHUB_CHECK_READ,
+    Permission.RELEASE_APPROVAL_READ,
+    Permission.RELEASE_APPROVAL_REQUEST,
   ],
   RELEASE_MANAGER: [
     Permission.ORGANIZATION_READ,
@@ -121,6 +135,9 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.RELEASE_SAFETY_EVALUATE,
     Permission.GITHUB_CHECK_READ,
     Permission.GITHUB_CHECK_PUBLISH,
+    Permission.RELEASE_APPROVAL_READ,
+    Permission.RELEASE_APPROVAL_REQUEST,
+    Permission.RELEASE_APPROVAL_RESOLVE,
   ],
   QA_ENGINEER: [
     Permission.ORGANIZATION_READ,
@@ -134,6 +151,8 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.BLAST_RADIUS_READ,
     Permission.RELEASE_SAFETY_READ,
     Permission.GITHUB_CHECK_READ,
+    Permission.RELEASE_APPROVAL_READ,
+    Permission.RELEASE_APPROVAL_REQUEST,
   ],
   AUDITOR: [
     Permission.ORGANIZATION_READ,
@@ -147,6 +166,7 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.BLAST_RADIUS_READ,
     Permission.RELEASE_SAFETY_READ,
     Permission.GITHUB_CHECK_READ,
+    Permission.RELEASE_APPROVAL_READ,
   ],
   VIEWER: [
     Permission.ORGANIZATION_READ,
@@ -160,6 +180,7 @@ export const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     Permission.BLAST_RADIUS_READ,
     Permission.RELEASE_SAFETY_READ,
     Permission.GITHUB_CHECK_READ,
+    Permission.RELEASE_APPROVAL_READ,
   ],
 };
 

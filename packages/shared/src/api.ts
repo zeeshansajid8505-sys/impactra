@@ -1004,11 +1004,135 @@ export interface GitHubCheckLatestResponseDto {
 }
 
 export interface GitHubCheckPublishResponseDto {
-  publication: GitHubCheckPublicationDto;
+  publicationId?: string;
+  publication?: GitHubCheckPublicationDto;
+  status?: GitHubCheckPublicationStatus;
   queued: boolean;
   message: string;
 }
 
 export interface PublishGitHubCheckRequestDto {
   assessmentId?: string;
+}
+
+// ============================================================
+// Release Approval & Exception Workflow Contracts (Phase 10)
+// ============================================================
+
+export const ReleaseApprovalStatus = {
+  PENDING: 'PENDING',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+  CANCELLED: 'CANCELLED',
+  EXPIRED: 'EXPIRED',
+} as const;
+export type ReleaseApprovalStatus =
+  (typeof ReleaseApprovalStatus)[keyof typeof ReleaseApprovalStatus];
+
+export const ReleaseApprovalResolution = {
+  APPROVE: 'APPROVE',
+  REJECT: 'REJECT',
+  EXCEPTION: 'EXCEPTION',
+} as const;
+export type ReleaseApprovalResolution =
+  (typeof ReleaseApprovalResolution)[keyof typeof ReleaseApprovalResolution];
+
+export const ReleaseApprovalEventType = {
+  REQUESTED: 'REQUESTED',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+  EXCEPTION_GRANTED: 'EXCEPTION_GRANTED',
+  CANCELLED: 'CANCELLED',
+  EXPIRED: 'EXPIRED',
+} as const;
+export type ReleaseApprovalEventType =
+  (typeof ReleaseApprovalEventType)[keyof typeof ReleaseApprovalEventType];
+
+export const EffectiveReleaseAuthorization = {
+  AUTO_APPROVED_BY_POLICY: 'AUTO_APPROVED_BY_POLICY',
+  PENDING_REVIEW: 'PENDING_REVIEW',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+  BLOCKED: 'BLOCKED',
+  EXCEPTION_GRANTED: 'EXCEPTION_GRANTED',
+} as const;
+export type EffectiveReleaseAuthorization =
+  (typeof EffectiveReleaseAuthorization)[keyof typeof EffectiveReleaseAuthorization];
+
+export interface ReleaseApprovalEventDto {
+  id: string;
+  organizationId: string;
+  approvalRequestId: string;
+  eventType: ReleaseApprovalEventType;
+  actorUserId: string;
+  actorUser?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
+  previousStatus: ReleaseApprovalStatus | null;
+  newStatus: ReleaseApprovalStatus;
+  reason: string | null;
+  metadataJson: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface ReleaseApprovalDto {
+  id: string;
+  organizationId: string;
+  repositoryConnectionId: string;
+  changeSetId: string;
+  changeRevisionId: string;
+  releaseSafetyAssessmentId: string;
+  status: ReleaseApprovalStatus;
+  requestedByUserId: string;
+  requestedByUser?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
+  requestedAt: string;
+  resolvedByUserId: string | null;
+  resolvedByUser?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
+  resolvedAt: string | null;
+  resolution: ReleaseApprovalResolution | null;
+  reason: string | null;
+  exceptionGranted: boolean;
+  exceptionReason: string | null;
+  expiresAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  events?: ReleaseApprovalEventDto[];
+}
+
+export interface ReleaseApprovalWorkflowResponseDto {
+  changeSetId: string;
+  organizationId: string;
+  assessmentId: string | null;
+  policyDecision: ReleaseSafetyDecision | null;
+  riskScore: number | null;
+  riskLevel: ReleaseRiskLevel | null;
+  effectiveAuthorization: EffectiveReleaseAuthorization;
+  approvalRequest: ReleaseApprovalDto | null;
+  events: ReleaseApprovalEventDto[];
+  canRequest: boolean;
+  canResolve: boolean;
+  canException: boolean;
+}
+
+export interface RequestReleaseApprovalRequestDto {
+  assessmentId?: string;
+  reason?: string;
+}
+
+export interface ResolveReleaseApprovalRequestDto {
+  reason: string;
+}
+
+export interface GrantReleaseExceptionRequestDto {
+  reason: string;
 }

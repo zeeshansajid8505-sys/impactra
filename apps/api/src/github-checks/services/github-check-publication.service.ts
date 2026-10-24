@@ -20,6 +20,7 @@ import {
   GitHubCheckPublishResponseDto,
   GitHubCheckPublicationStatus,
   ReleaseSafetyDecision,
+  EffectiveReleaseAuthorization,
 } from '@impactra/shared';
 import { GitHubCheckConclusion } from '@impactra/database';
 
@@ -258,7 +259,50 @@ export class GitHubCheckPublicationService {
       repo = parts[1];
     }
 
-    // Build deterministic wire payload
+    // Query latest ReleaseApprovalRequest to incorporate human governance state
+    const approvalRequest =
+      (await this.databaseService.client.releaseApprovalRequest?.findUnique({
+        where: {
+          releaseSafetyAssessmentId: pub.releaseSafetyAssessmentId,
+        },
+        include: {
+          requestedByUser: { select: { id: true, name: true, email: true } },
+          resolvedByUser: { select: { id: true, name: true, email: true } },
+        },
+      })) ?? null;
+
+    let effectiveAuthorization: EffectiveReleaseAuthorization;
+    const decision = pub.releaseSafetyAssessment.decision;
+
+    if (decision === 'PASS') {
+      effectiveAuthorization = 'AUTO_APPROVED_BY_POLICY';
+    } else if (decision === 'REVIEW_REQUIRED') {
+      if (approvalRequest?.status === 'APPROVED') {
+        effectiveAuthorization =
+          approvalRequest.resolution === 'EXCEPTION'
+            ? 'EXCEPTION_GRANTED'
+            : 'APPROVED';
+      } else if (approvalRequest?.status === 'REJECTED') {
+        effectiveAuthorization = 'REJECTED';
+      } else {
+        effectiveAuthorization = 'PENDING_REVIEW';
+      }
+    } else if (decision === 'BLOCKED') {
+      if (
+        approvalRequest?.status === 'APPROVED' &&
+        approvalRequest.resolution === 'EXCEPTION'
+      ) {
+        effectiveAuthorization = 'EXCEPTION_GRANTED';
+      } else if (approvalRequest?.status === 'REJECTED') {
+        effectiveAuthorization = 'REJECTED';
+      } else {
+        effectiveAuthorization = 'BLOCKED';
+      }
+    } else {
+      effectiveAuthorization = 'BLOCKED';
+    }
+
+    // Build deterministic wire payload with governance context
     const payload = this.payloadBuilder.buildPayload({
       assessment: pub.releaseSafetyAssessment,
       repositoryConnectionId: pub.repositoryConnectionId,
@@ -268,6 +312,17 @@ export class GitHubCheckPublicationService {
         process.env.APP_BASE_URL ||
         process.env.WEB_URL ||
         'http://impactra.local',
+      governance: {
+        effectiveAuthorization,
+        status: approvalRequest?.status as any,
+        resolution: approvalRequest?.resolution as any,
+        authorizedBy:
+          approvalRequest?.resolvedByUser?.name ||
+          approvalRequest?.resolvedByUser?.email ||
+          null,
+        reason: approvalRequest?.reason || null,
+        exceptionReason: approvalRequest?.exceptionReason || null,
+      },
     });
 
     try {
@@ -296,15 +351,22 @@ export class GitHubCheckPublicationService {
         );
       }
 
-      const conclusionMap: Record<
-        ReleaseSafetyDecision,
-        GitHubCheckConclusion
-      > = {
-        PASS: 'SUCCESS',
-        REVIEW_REQUIRED: 'ACTION_REQUIRED',
-        BLOCKED: 'FAILURE',
-      };
-      const conclusion = conclusionMap[pub.releaseSafetyAssessment.decision];
+      let conclusion: GitHubCheckConclusion;
+      switch (effectiveAuthorization) {
+        case 'AUTO_APPROVED_BY_POLICY':
+        case 'APPROVED':
+        case 'EXCEPTION_GRANTED':
+          conclusion = 'SUCCESS';
+          break;
+        case 'PENDING_REVIEW':
+          conclusion = 'ACTION_REQUIRED';
+          break;
+        case 'REJECTED':
+        case 'BLOCKED':
+        default:
+          conclusion = 'FAILURE';
+          break;
+      }
 
       await this.persistenceService.markSucceeded(
         publicationId,

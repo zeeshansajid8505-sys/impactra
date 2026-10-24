@@ -1,3 +1,4 @@
+import { EffectiveReleaseAuthorization } from '@impactra/shared';
 import {
   GitHubCheckPayloadBuilderService,
   GITHUB_CHECK_NAME,
@@ -254,6 +255,74 @@ describe('GitHubCheckPayloadBuilderService', () => {
       expect(payload.output.text).toContain(
         'Zero risk signals identified for this change revision.',
       );
+    });
+
+    it('incorporates APPROVED governance state into payload conclusion and summary', () => {
+      const payload = service.buildPayload({
+        assessment: baseAssessment,
+        repositoryConnectionId: 'repo-1',
+        headSha: 'abcdef',
+        changeSetId: 'cs-1',
+        governance: {
+          effectiveAuthorization: EffectiveReleaseAuthorization.APPROVED,
+          authorizedBy: 'Lead Architect',
+          reason: 'Architecture risk reviewed and accepted.',
+        },
+      });
+
+      expect(payload.conclusion).toBe('success');
+      expect(payload.output.title).toContain('APPROVED');
+      expect(payload.output.summary).toContain('**Effective Authorization**: APPROVED');
+      expect(payload.output.summary).toContain('**Approval**: APPROVED');
+      expect(payload.output.summary).toContain('**Approved By**: Lead Architect');
+      expect(payload.output.summary).toContain('**Approval Reason**: Architecture risk reviewed and accepted.');
+    });
+
+    it('incorporates EXCEPTION_GRANTED governance state for BLOCKED assessment into payload', () => {
+      const blockedAssessment = {
+        ...baseAssessment,
+        decision: 'BLOCKED' as ReleaseSafetyDecision,
+        riskScore: 85,
+      };
+
+      const payload = service.buildPayload({
+        assessment: blockedAssessment,
+        repositoryConnectionId: 'repo-1',
+        headSha: 'abcdef',
+        changeSetId: 'cs-1',
+        governance: {
+          effectiveAuthorization: EffectiveReleaseAuthorization.EXCEPTION_GRANTED,
+          authorizedBy: 'VP Engineering',
+          exceptionReason: 'Emergency production hotfix override.',
+        },
+      });
+
+      expect(payload.conclusion).toBe('success');
+      expect(payload.output.title).toContain('EXCEPTION GRANTED');
+      expect(payload.output.summary).toContain('**Release Decision**: BLOCKED');
+      expect(payload.output.summary).toContain('**Effective Authorization**: EXCEPTION_GRANTED');
+      expect(payload.output.summary).toContain('**Exception**: GRANTED');
+      expect(payload.output.summary).toContain('**Authorized By**: VP Engineering');
+      expect(payload.output.summary).toContain('**Exception Reason**: Emergency production hotfix override.');
+    });
+
+    it('incorporates REJECTED governance state into payload conclusion', () => {
+      const payload = service.buildPayload({
+        assessment: baseAssessment,
+        repositoryConnectionId: 'repo-1',
+        headSha: 'abcdef',
+        changeSetId: 'cs-1',
+        governance: {
+          effectiveAuthorization: EffectiveReleaseAuthorization.REJECTED,
+          authorizedBy: 'QA Lead',
+          reason: 'Breaking regression identified in blast radius.',
+        },
+      });
+
+      expect(payload.conclusion).toBe('failure');
+      expect(payload.output.title).toContain('REJECTED');
+      expect(payload.output.summary).toContain('**Effective Authorization**: REJECTED');
+      expect(payload.output.summary).toContain('**Approval**: REJECTED');
     });
   });
 });

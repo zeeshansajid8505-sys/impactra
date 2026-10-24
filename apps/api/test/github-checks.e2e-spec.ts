@@ -16,6 +16,11 @@ import { GitHubCheckQueueService } from '../src/github-checks/queue/github-check
 import { GitHubInstallationService } from '../src/github/services/github-installation.service';
 import { GitHubClientService } from '../src/github/services/github-client.service';
 import { getQueueToken } from '@nestjs/bullmq';
+import { IngestionProcessor } from '../src/ingestion/ingestion.processor';
+import { ChangesProcessor } from '../src/changes/changes.processor';
+import { BlastRadiusProcessor } from '../src/blast-radius/blast-radius.processor';
+import { ReleaseSafetyProcessor } from '../src/release-safety/release-safety.processor';
+import { GitHubCheckProcessor } from '../src/github-checks/github-check.processor';
 
 const request: typeof supertest =
   typeof supertest === 'function'
@@ -700,13 +705,50 @@ describe('GitHub Checks & Release Gate Integration Foundation (E2E)', () => {
     })
       .overrideProvider(DatabaseService)
       .useValue(mockDbService)
+      .overrideProvider(CacheService)
+      .useValue({
+        get: jest.fn().mockResolvedValue(null),
+        set: jest.fn().mockResolvedValue(undefined),
+        del: jest.fn().mockResolvedValue(undefined),
+        delete: jest.fn().mockResolvedValue(undefined),
+      })
+      .overrideProvider(StorageService)
+      .useValue({
+        get: jest.fn().mockResolvedValue(null),
+        put: jest.fn().mockResolvedValue(undefined),
+        putObject: jest.fn().mockResolvedValue(undefined),
+        getObject: jest.fn().mockResolvedValue(Buffer.from('')),
+      })
       .overrideProvider(GitHubInstallationService)
       .useValue(mockInstallationService)
       .overrideProvider(GitHubClientService)
       .useValue(mockClientService)
+      .overrideProvider(IngestionProcessor)
+      .useValue({ process: jest.fn().mockResolvedValue(undefined) })
+      .overrideProvider(ChangesProcessor)
+      .useValue({ process: jest.fn().mockResolvedValue(undefined) })
+      .overrideProvider(BlastRadiusProcessor)
+      .useValue({ process: jest.fn().mockResolvedValue(undefined) })
+      .overrideProvider(ReleaseSafetyProcessor)
+      .useValue({ process: jest.fn().mockResolvedValue(undefined) })
+      .overrideProvider(GitHubCheckProcessor)
+      .useValue({ process: jest.fn().mockResolvedValue(undefined) })
+      .overrideProvider(getQueueToken('repo-ingestion'))
+      .useValue({ opts: { connection: { host: 'localhost', port: 6380 } }, add: jest.fn(), getJob: jest.fn(), close: jest.fn().mockResolvedValue(undefined), disconnect: jest.fn().mockResolvedValue(undefined), on: jest.fn() })
+      .overrideProvider(getQueueToken('changes-analysis'))
+      .useValue({ opts: { connection: { host: 'localhost', port: 6380 } }, add: jest.fn(), getJob: jest.fn(), close: jest.fn().mockResolvedValue(undefined), disconnect: jest.fn().mockResolvedValue(undefined), on: jest.fn() })
+      .overrideProvider(getQueueToken('blast-radius-analysis'))
+      .useValue({ opts: { connection: { host: 'localhost', port: 6380 } }, add: jest.fn(), getJob: jest.fn(), close: jest.fn().mockResolvedValue(undefined), disconnect: jest.fn().mockResolvedValue(undefined), on: jest.fn() })
+      .overrideProvider(getQueueToken('release-safety-analysis'))
+      .useValue({ opts: { connection: { host: 'localhost', port: 6380 } }, add: jest.fn(), getJob: jest.fn(), close: jest.fn().mockResolvedValue(undefined), disconnect: jest.fn().mockResolvedValue(undefined), on: jest.fn() })
       .overrideProvider(getQueueToken('github-check-publication'))
       .useValue({
+        opts: { connection: { host: 'localhost', port: 6380 } },
         add: jest.fn().mockResolvedValue({ id: 'mock-bull-job-id' }),
+        getJob: jest.fn().mockResolvedValue(null),
+        close: jest.fn().mockResolvedValue(undefined),
+        disconnect: jest.fn().mockResolvedValue(undefined),
+        on: jest.fn(),
       })
       .compile();
 
@@ -728,7 +770,7 @@ describe('GitHub Checks & Release Gate Integration Foundation (E2E)', () => {
     if (app) {
       await app.close();
     }
-  });
+  }, 30000);
 
   describe('RBAC Authorization', () => {
     it('returns 401 Unauthorized when unauthenticated', async () => {

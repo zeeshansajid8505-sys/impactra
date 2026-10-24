@@ -5,6 +5,11 @@ import {
   ReleaseSafetyDecision,
   ReleaseSafetySignalSeverity,
 } from '@impactra/database';
+import {
+  EffectiveReleaseAuthorization,
+  ReleaseApprovalStatus,
+  ReleaseApprovalResolution,
+} from '@impactra/shared';
 
 export const GITHUB_CHECK_NAME = 'Impactra / Release Safety';
 export const MAX_SIGNALS_IN_CHECK_OUTPUT = 15;
@@ -24,6 +29,15 @@ export interface GitHubCheckWirePayload {
   };
 }
 
+export interface GovernancePayloadInfo {
+  effectiveAuthorization: EffectiveReleaseAuthorization;
+  status?: ReleaseApprovalStatus;
+  resolution?: ReleaseApprovalResolution | null;
+  authorizedBy?: string | null;
+  reason?: string | null;
+  exceptionReason?: string | null;
+}
+
 export interface BuildPayloadOptions {
   assessment: ReleaseSafetyAssessment & {
     signals?: ReleaseSafetySignal[];
@@ -32,6 +46,7 @@ export interface BuildPayloadOptions {
   headSha: string;
   changeSetId: string;
   appBaseUrl?: string | null;
+  governance?: GovernancePayloadInfo | null;
 }
 
 const SEVERITY_RANK: Record<ReleaseSafetySignalSeverity, number> = {
@@ -67,9 +82,49 @@ export class GitHubCheckPayloadBuilderService {
   }
 
   /**
+   * Deterministically maps EffectiveReleaseAuthorization to GitHub Check Run conclusion.
+   */
+  mapAuthorizationToConclusion(
+    authorization: EffectiveReleaseAuthorization,
+  ): 'success' | 'action_required' | 'failure' {
+    switch (authorization) {
+      case EffectiveReleaseAuthorization.AUTO_APPROVED_BY_POLICY:
+      case EffectiveReleaseAuthorization.APPROVED:
+      case EffectiveReleaseAuthorization.EXCEPTION_GRANTED:
+        return 'success';
+      case EffectiveReleaseAuthorization.PENDING_REVIEW:
+        return 'action_required';
+      case EffectiveReleaseAuthorization.REJECTED:
+      case EffectiveReleaseAuthorization.BLOCKED:
+      default:
+        return 'failure';
+    }
+  }
+
+  /**
    * Builds the deterministic title for the GitHub Check output.
    */
-  buildOutputTitle(decision: ReleaseSafetyDecision): string {
+  buildOutputTitle(
+    decision: ReleaseSafetyDecision,
+    effectiveAuthorization?: EffectiveReleaseAuthorization,
+  ): string {
+    if (effectiveAuthorization) {
+      switch (effectiveAuthorization) {
+        case EffectiveReleaseAuthorization.AUTO_APPROVED_BY_POLICY:
+          return 'Impactra Release Safety: PASS (Auto-Approved)';
+        case EffectiveReleaseAuthorization.APPROVED:
+          return 'Impactra Release Safety: APPROVED (Review Completed)';
+        case EffectiveReleaseAuthorization.EXCEPTION_GRANTED:
+          return 'Impactra Release Safety: EXCEPTION GRANTED';
+        case EffectiveReleaseAuthorization.REJECTED:
+          return 'Impactra Release Safety: REJECTED';
+        case EffectiveReleaseAuthorization.PENDING_REVIEW:
+          return 'Impactra Release Safety: REVIEW REQUIRED (Pending Approval)';
+        case EffectiveReleaseAuthorization.BLOCKED:
+          return 'Impactra Release Safety: BLOCKED';
+      }
+    }
+
     switch (decision) {
       case 'PASS':
         return 'Impactra Release Safety: PASS';
@@ -120,36 +175,91 @@ export class GitHubCheckPayloadBuilderService {
       headSha,
       changeSetId,
       appBaseUrl,
+      governance,
     } = options;
 
-    const conclusion = this.mapDecisionToConclusion(assessment.decision);
-    const title = this.buildOutputTitle(assessment.decision);
+    const conclusion = governance
+      ? this.mapAuthorizationToConclusion(governance.effectiveAuthorization)
+      : this.mapDecisionToConclusion(assessment.decision);
+
+    const title = this.buildOutputTitle(
+      assessment.decision,
+      governance?.effectiveAuthorization,
+    );
     const externalId = this.buildExternalId(repositoryConnectionId, headSha);
 
     const summaryLines = [
       '### Impactra Release Safety Gate',
       '',
       `- **Release Decision**: ${assessment.decision}`,
+    ];
+
+    if (governance) {
+      summaryLines.push(
+        `- **Effective Authorization**: ${governance.effectiveAuthorization}`,
+      );
+      if (
+        governance.effectiveAuthorization ===
+        EffectiveReleaseAuthorization.EXCEPTION_GRANTED
+      ) {
+        summaryLines.push('- **Exception**: GRANTED');
+        if (governance.authorizedBy) {
+          summaryLines.push(`- **Authorized By**: ${governance.authorizedBy}`);
+        }
+        const reasonText =
+          governance.exceptionReason ||
+          governance.reason ||
+          'Approved by administrative exception.';
+        summaryLines.push(`- **Exception Reason**: ${reasonText}`);
+      } else if (
+        governance.effectiveAuthorization ===
+        EffectiveReleaseAuthorization.APPROVED
+      ) {
+        summaryLines.push('- **Approval**: APPROVED');
+        if (governance.authorizedBy) {
+          summaryLines.push(`- **Approved By**: ${governance.authorizedBy}`);
+        }
+        if (governance.reason) {
+          summaryLines.push(`- **Approval Reason**: ${governance.reason}`);
+        }
+      } else if (
+        governance.effectiveAuthorization ===
+        EffectiveReleaseAuthorization.REJECTED
+      ) {
+        summaryLines.push('- **Approval**: REJECTED');
+        if (governance.authorizedBy) {
+          summaryLines.push(`- **Rejected By**: ${governance.authorizedBy}`);
+        }
+        if (governance.reason) {
+          summaryLines.push(`- **Rejection Reason**: ${governance.reason}`);
+        }
+      }
+    }
+
+    summaryLines.push(
       `- **Risk Score**: ${assessment.riskScore} / 100`,
       `- **Risk Level**: ${assessment.riskLevel}`,
       `- **Signals Evaluated**: ${assessment.signalCount}`,
       `- **Blocking Signals**: ${assessment.blockingSignalCount}`,
       `- **Review Signals**: ${assessment.reviewSignalCount}`,
       `- **Policy Version**: ${assessment.policyVersion}`,
-    ];
+    );
 
-    const allSignals = assessment.signals ? this.sortSignals(assessment.signals) : [];
+    const allSignals = assessment.signals
+      ? this.sortSignals(assessment.signals)
+      : [];
     const boundedSignals = allSignals.slice(0, MAX_SIGNALS_IN_CHECK_OUTPUT);
 
-    const textLines = [
-      '### Evaluated Safety Signals',
-      '',
-    ];
+    const textLines = ['### Evaluated Safety Signals', ''];
 
     if (boundedSignals.length === 0) {
-      textLines.push('_Zero risk signals identified for this change revision._');
+      textLines.push(
+        '_Zero risk signals identified for this change revision._',
+      );
     } else {
-      textLines.push('| Rule | Severity | Score Δ | Blocking | Review | Title |');
+      textLines.push(
+        '| Rule | Severity | Score Δ | Blocking | Review | Title |',
+      );
       textLines.push('|---|---|---|---|---|---|');
       for (const sig of boundedSignals) {
         const blockingText = sig.blocking ? '⚠️ **YES**' : 'No';
@@ -169,7 +279,12 @@ export class GitHubCheckPayloadBuilderService {
     }
 
     let detailsUrl: string | undefined;
-    if (appBaseUrl && appBaseUrl.startsWith('http') && !appBaseUrl.includes('localhost') && !appBaseUrl.includes('.local')) {
+    if (
+      appBaseUrl &&
+      appBaseUrl.startsWith('http') &&
+      !appBaseUrl.includes('localhost') &&
+      !appBaseUrl.includes('.local')
+    ) {
       detailsUrl = `${appBaseUrl.replace(/\/+$/, '')}/workspace/changes/${changeSetId}`;
     }
 

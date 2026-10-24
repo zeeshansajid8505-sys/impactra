@@ -190,4 +190,87 @@ describe('RBAC Permissions Policy — Ingestion & Digital Twin Matrix', () => {
       }
     });
   });
+
+  describe('Permission.RELEASE_APPROVAL_READ', () => {
+    it('allows release approval read access to all organization member roles', () => {
+      for (const role of allRoles) {
+        expect(hasPermission(role, Permission.RELEASE_APPROVAL_READ)).toBe(true);
+      }
+    });
+  });
+
+  describe('Permission.RELEASE_APPROVAL_REQUEST', () => {
+    it('allows OWNER, ADMIN, ARCHITECT, SECURITY_ENGINEER, DEVELOPER, RELEASE_MANAGER, QA_ENGINEER', () => {
+      const allowedRoles: MembershipRole[] = [
+        'OWNER',
+        'ADMIN',
+        'ARCHITECT',
+        'SECURITY_ENGINEER',
+        'DEVELOPER',
+        'RELEASE_MANAGER',
+        'QA_ENGINEER',
+      ];
+      for (const role of allowedRoles) {
+        expect(hasPermission(role, Permission.RELEASE_APPROVAL_REQUEST)).toBe(true);
+      }
+    });
+
+    it('denies AUDITOR, VIEWER', () => {
+      const deniedRoles: MembershipRole[] = ['AUDITOR', 'VIEWER'];
+      for (const role of deniedRoles) {
+        expect(hasPermission(role, Permission.RELEASE_APPROVAL_REQUEST)).toBe(false);
+      }
+    });
+  });
+
+  describe('Permission.RELEASE_APPROVAL_RESOLVE', () => {
+    it('allows OWNER, ADMIN, RELEASE_MANAGER', () => {
+      const allowedRoles: MembershipRole[] = [
+        'OWNER',
+        'ADMIN',
+        'RELEASE_MANAGER',
+      ];
+      for (const role of allowedRoles) {
+        expect(hasPermission(role, Permission.RELEASE_APPROVAL_RESOLVE)).toBe(true);
+      }
+    });
+
+    it('denies ARCHITECT, DEVELOPER, QA_ENGINEER, SECURITY_ENGINEER, AUDITOR, VIEWER', () => {
+      const deniedRoles: MembershipRole[] = [
+        'ARCHITECT',
+        'DEVELOPER',
+        'QA_ENGINEER',
+        'SECURITY_ENGINEER',
+        'AUDITOR',
+        'VIEWER',
+      ];
+      for (const role of deniedRoles) {
+        expect(hasPermission(role, Permission.RELEASE_APPROVAL_RESOLVE)).toBe(false);
+      }
+    });
+  });
+
+  describe('Permission.RELEASE_APPROVAL_EXCEPTION', () => {
+    it('allows OWNER, ADMIN', () => {
+      const allowedRoles: MembershipRole[] = ['OWNER', 'ADMIN'];
+      for (const role of allowedRoles) {
+        expect(hasPermission(role, Permission.RELEASE_APPROVAL_EXCEPTION)).toBe(true);
+      }
+    });
+
+    it('denies ARCHITECT, DEVELOPER, RELEASE_MANAGER, QA_ENGINEER, SECURITY_ENGINEER, AUDITOR, VIEWER', () => {
+      const deniedRoles: MembershipRole[] = [
+        'ARCHITECT',
+        'DEVELOPER',
+        'RELEASE_MANAGER',
+        'QA_ENGINEER',
+        'SECURITY_ENGINEER',
+        'AUDITOR',
+        'VIEWER',
+      ];
+      for (const role of deniedRoles) {
+        expect(hasPermission(role, Permission.RELEASE_APPROVAL_EXCEPTION)).toBe(false);
+      }
+    });
+  });
 });

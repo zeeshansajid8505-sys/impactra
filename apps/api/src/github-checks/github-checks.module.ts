@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { DatabaseModule } from '../database/database.module';
 import { OrganizationsModule } from '../organizations/organizations.module';
@@ -19,7 +19,7 @@ import { OrganizationGitHubCheckController } from './controllers/organization-gi
     OrganizationsModule,
     SessionsModule,
     CacheModule,
-    GithubModule,
+    forwardRef(() => GithubModule),
     BullModule.registerQueue({
       name: 'github-check-publication',
     }),

@@ -25,6 +25,11 @@ import {
   Play,
   ShieldCheck,
   ShieldX,
+  UserCheck,
+  FileSignature,
+  XCircle,
+  AlertOctagon,
+  History,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import {
@@ -42,6 +47,11 @@ import {
   apiListReleaseSafetySignals,
   apiGetLatestGitHubCheck,
   apiPublishGitHubCheck,
+  apiGetReleaseApprovalWorkflow,
+  apiPostRequestReleaseApproval,
+  apiPostApproveRelease,
+  apiPostRejectRelease,
+  apiPostGrantReleaseException,
 } from '@/lib/api-client';
 import {
   ChangeSetDto,
@@ -61,6 +71,11 @@ import {
   GitHubCheckPublicationDto,
   GitHubCheckPublicationStatus,
   GitHubCheckConclusion,
+  ReleaseApprovalWorkflowResponseDto,
+  EffectiveReleaseAuthorization,
+  ReleaseApprovalStatus,
+  ReleaseApprovalResolution,
+  ReleaseApprovalEventDto,
 } from '@impactra/shared';
 
 type TabKey =
@@ -70,7 +85,8 @@ type TabKey =
   | 'deltas'
   | 'blast-radius'
   | 'release-safety'
-  | 'github-checks';
+  | 'github-checks'
+  | 'release-approval';
 
 async function fetchBlastFindingsData(
   organizationId: string,
@@ -145,6 +161,17 @@ export default function ChangeDetailPage({
   const [gitHubCheck, setGitHubCheck] = useState<GitHubCheckLatestResponseDto | null>(null);
   const [publishingCheck, setPublishingCheck] = useState<boolean>(false);
 
+  // Release Approval Governance state
+  const [releaseApprovalWorkflow, setReleaseApprovalWorkflow] =
+    useState<ReleaseApprovalWorkflowResponseDto | null>(null);
+  const [activeGovernanceModal, setActiveGovernanceModal] = useState<
+    'request' | 'approve' | 'reject' | 'exception' | null
+  >(null);
+  const [governanceReason, setGovernanceReason] = useState<string>('');
+  const [submittingGovernance, setSubmittingGovernance] =
+    useState<boolean>(false);
+  const [governanceError, setGovernanceError] = useState<string | null>(null);
+
   const [loading, setLoading] = useState<boolean>(true);
   const [syncing, setSyncing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -205,6 +232,13 @@ export default function ChangeDetailPage({
           setGitHubCheck(gcSummary);
         } catch {
           // Check may not be published yet
+        }
+
+        try {
+          const raWorkflow = await apiGetReleaseApprovalWorkflow(organizationId, changeSetId);
+          setReleaseApprovalWorkflow(raWorkflow);
+        } catch {
+          // Approval workflow may not be initialized yet
         }
       }
       setError(null);
@@ -286,6 +320,15 @@ export default function ChangeDetailPage({
             }
           } catch {
             // Check may not be published yet
+          }
+
+          try {
+            const raWorkflow = await apiGetReleaseApprovalWorkflow(organizationId, changeSetId);
+            if (!cancelled) {
+              setReleaseApprovalWorkflow(raWorkflow);
+            }
+          } catch {
+            // Approval workflow may not be initialized yet
           }
         }
         setError(null);
@@ -489,6 +532,88 @@ export default function ChangeDetailPage({
       setError(`Sync failed: ${msg}`);
     } finally {
       setSyncing(false);
+    }
+  };
+
+  const handleOpenGovernanceModal = (
+    type: 'request' | 'approve' | 'reject' | 'exception',
+  ) => {
+    setActiveGovernanceModal(type);
+    setGovernanceReason('');
+    setGovernanceError(null);
+  };
+
+  const handleCloseGovernanceModal = () => {
+    setActiveGovernanceModal(null);
+    setGovernanceReason('');
+    setGovernanceError(null);
+  };
+
+  const handleSubmitGovernanceAction = async () => {
+    if (!organizationId || !changeSetId || !activeGovernanceModal) return;
+    const trimmed = governanceReason.trim();
+    if (!trimmed) {
+      setGovernanceError('A non-empty reason is required.');
+      return;
+    }
+    if (trimmed.length > 2000) {
+      setGovernanceError('Reason exceeds maximum allowed length of 2000 characters.');
+      return;
+    }
+
+    setSubmittingGovernance(true);
+    setGovernanceError(null);
+
+    try {
+      let updatedWorkflow: ReleaseApprovalWorkflowResponseDto;
+      const approvalId = releaseApprovalWorkflow?.approvalRequest?.id || 'latest';
+
+      if (activeGovernanceModal === 'request') {
+        updatedWorkflow = await apiPostRequestReleaseApproval(
+          organizationId,
+          changeSetId,
+          {
+            assessmentId: releaseSafetyAssessment?.id,
+            reason: trimmed,
+          },
+        );
+      } else if (activeGovernanceModal === 'approve') {
+        updatedWorkflow = await apiPostApproveRelease(
+          organizationId,
+          changeSetId,
+          approvalId,
+          { reason: trimmed },
+        );
+      } else if (activeGovernanceModal === 'reject') {
+        updatedWorkflow = await apiPostRejectRelease(
+          organizationId,
+          changeSetId,
+          approvalId,
+          { reason: trimmed },
+        );
+      } else {
+        updatedWorkflow = await apiPostGrantReleaseException(
+          organizationId,
+          changeSetId,
+          approvalId,
+          { reason: trimmed },
+        );
+      }
+
+      setReleaseApprovalWorkflow(updatedWorkflow);
+      handleCloseGovernanceModal();
+
+      try {
+        const gcSummary = await apiGetLatestGitHubCheck(organizationId, changeSetId);
+        setGitHubCheck(gcSummary);
+      } catch {
+        // Ignore check refresh error
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setGovernanceError(msg);
+    } finally {
+      setSubmittingGovernance(false);
     }
   };
 
@@ -726,6 +851,22 @@ export default function ChangeDetailPage({
             ? `(${gitHubCheck.summary.conclusion})`
             : gitHubCheck?.publication?.status
             ? `(${gitHubCheck.publication.status})`
+            : ''}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('release-approval')}
+          className={`pb-3 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 ${
+            activeTab === 'release-approval'
+              ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
+              : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+          }`}
+        >
+          <UserCheck className="w-4 h-4" />
+          Release Approval{' '}
+          {releaseApprovalWorkflow?.effectiveAuthorization
+            ? `(${releaseApprovalWorkflow.effectiveAuthorization})`
             : ''}
         </button>
       </div>
@@ -1973,6 +2114,383 @@ export default function ChangeDetailPage({
           )}
         </div>
       )}
+
+      {/* 8. RELEASE APPROVAL & EXCEPTION GOVERNANCE */}
+      {activeTab === 'release-approval' && (
+        <div className="space-y-6">
+          {/* Header Card with Action Controls */}
+          <div className="p-6 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-3">
+                <UserCheck className="w-6 h-6 text-indigo-500" />
+                <h2 className="text-lg font-bold text-[var(--text-primary)]">
+                  Release Approval & Exception Governance
+                </h2>
+              </div>
+              <p className="text-xs text-[var(--text-secondary)] mt-1">
+                Authoritative human approval and administrative exception workflow preserving strict separation of duties.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Request Approval Button */}
+              {releaseApprovalWorkflow?.canRequest && (
+                <button
+                  type="button"
+                  onClick={() => handleOpenGovernanceModal('request')}
+                  className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition-colors"
+                >
+                  <FileSignature className="w-3.5 h-3.5" />
+                  Request Approval
+                </button>
+              )}
+
+              {/* Approve Button */}
+              {releaseApprovalWorkflow?.canResolve &&
+                releaseApprovalWorkflow.approvalRequest?.status === 'PENDING' && (
+                  <button
+                    type="button"
+                    onClick={() => handleOpenGovernanceModal('approve')}
+                    className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-colors"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Approve Release
+                  </button>
+                )}
+
+              {/* Reject Button */}
+              {releaseApprovalWorkflow?.canResolve &&
+                releaseApprovalWorkflow.approvalRequest?.status === 'PENDING' && (
+                  <button
+                    type="button"
+                    onClick={() => handleOpenGovernanceModal('reject')}
+                    className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg bg-red-600 hover:bg-red-700 text-white shadow-sm transition-colors"
+                  >
+                    <XCircle className="w-3.5 h-3.5" />
+                    Reject Release
+                  </button>
+                )}
+
+              {/* Grant Exception Button (Owner/Admin only) */}
+              {releaseApprovalWorkflow?.canException && (
+                <button
+                  type="button"
+                  onClick={() => handleOpenGovernanceModal('exception')}
+                  className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg bg-amber-600 hover:bg-amber-700 text-white shadow-sm transition-colors border border-amber-500/30"
+                >
+                  <AlertOctagon className="w-3.5 h-3.5" />
+                  Grant Policy Exception
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Status & Decision KPI Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] space-y-1.5">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                Effective Release Authorization
+              </span>
+              <div className="flex items-center gap-2">
+                <span
+                  className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${
+                    releaseApprovalWorkflow?.effectiveAuthorization === 'AUTO_APPROVED_BY_POLICY' ||
+                    releaseApprovalWorkflow?.effectiveAuthorization === 'APPROVED'
+                      ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                      : releaseApprovalWorkflow?.effectiveAuthorization === 'EXCEPTION_GRANTED'
+                      ? 'bg-purple-500/10 text-purple-400 border-purple-500/20'
+                      : releaseApprovalWorkflow?.effectiveAuthorization === 'PENDING_REVIEW'
+                      ? 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                      : 'bg-red-500/10 text-red-500 border-red-500/20'
+                  }`}
+                >
+                  {releaseApprovalWorkflow?.effectiveAuthorization || 'PENDING'}
+                </span>
+              </div>
+            </div>
+
+            <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] space-y-1.5">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                Policy Decision
+              </span>
+              <div className="flex items-center gap-2">
+                <span
+                  className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${
+                    releaseApprovalWorkflow?.policyDecision === 'PASS'
+                      ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                      : releaseApprovalWorkflow?.policyDecision === 'REVIEW_REQUIRED'
+                      ? 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                      : 'bg-red-500/10 text-red-500 border-red-500/20'
+                  }`}
+                >
+                  {releaseApprovalWorkflow?.policyDecision || 'NO POLICY EVALUATION'}
+                </span>
+              </div>
+            </div>
+
+            <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] space-y-1.5">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                Approval Request Status
+              </span>
+              <div className="flex items-center gap-2">
+                <span
+                  className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${
+                    releaseApprovalWorkflow?.approvalRequest?.status === 'APPROVED'
+                      ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                      : releaseApprovalWorkflow?.approvalRequest?.status === 'PENDING'
+                      ? 'bg-blue-500/10 text-blue-500 border-blue-500/20'
+                      : releaseApprovalWorkflow?.approvalRequest?.status === 'REJECTED'
+                      ? 'bg-red-500/10 text-red-500 border-red-500/20'
+                      : 'bg-slate-500/10 text-slate-400 border-slate-500/20'
+                  }`}
+                >
+                  {releaseApprovalWorkflow?.approvalRequest?.status || 'NONE'}
+                </span>
+              </div>
+            </div>
+
+            <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] space-y-1.5">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                Resolution & Exemption
+              </span>
+              <div className="flex items-center gap-2">
+                <span
+                  className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${
+                    releaseApprovalWorkflow?.approvalRequest?.resolution === 'EXCEPTION'
+                      ? 'bg-purple-500/10 text-purple-400 border-purple-500/20'
+                      : releaseApprovalWorkflow?.approvalRequest?.resolution === 'APPROVE'
+                      ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                      : releaseApprovalWorkflow?.approvalRequest?.resolution === 'REJECT'
+                      ? 'bg-red-500/10 text-red-500 border-red-500/20'
+                      : 'bg-slate-500/10 text-slate-400 border-slate-500/20'
+                  }`}
+                >
+                  {releaseApprovalWorkflow?.approvalRequest?.resolution || 'UNRESOLVED'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Details Card */}
+          {releaseApprovalWorkflow?.approvalRequest && (
+            <div className="p-6 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] space-y-4">
+              <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
+                <FileSignature className="w-4 h-4 text-indigo-500" />
+                Active Request Details
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                <div className="p-4 rounded-lg border border-[var(--border)] bg-[var(--surface)] space-y-2">
+                  <div className="flex justify-between py-1 border-b border-[var(--border)]">
+                    <span className="text-[var(--text-muted)]">Requested By:</span>
+                    <span className="text-[var(--text-primary)] font-medium">
+                      {releaseApprovalWorkflow.approvalRequest.requestedByUser?.name ||
+                        releaseApprovalWorkflow.approvalRequest.requestedByUser?.email ||
+                        'System'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-[var(--border)]">
+                    <span className="text-[var(--text-muted)]">Requested At:</span>
+                    <span className="text-[var(--text-secondary)] font-mono">
+                      {new Date(releaseApprovalWorkflow.approvalRequest.requestedAt).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="pt-1">
+                    <span className="text-[var(--text-muted)] block mb-1">Request Reason:</span>
+                    <p className="text-[var(--text-primary)] bg-[var(--surface-raised)] p-2 rounded border border-[var(--border)] whitespace-pre-wrap">
+                      {releaseApprovalWorkflow.approvalRequest.reason || 'No request reason provided.'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-lg border border-[var(--border)] bg-[var(--surface)] space-y-2">
+                  <div className="flex justify-between py-1 border-b border-[var(--border)]">
+                    <span className="text-[var(--text-muted)]">Resolved By:</span>
+                    <span className="text-[var(--text-primary)] font-medium">
+                      {releaseApprovalWorkflow.approvalRequest.resolvedByUser?.name ||
+                        releaseApprovalWorkflow.approvalRequest.resolvedByUser?.email ||
+                        '—'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-[var(--border)]">
+                    <span className="text-[var(--text-muted)]">Resolved At:</span>
+                    <span className="text-[var(--text-secondary)] font-mono">
+                      {releaseApprovalWorkflow.approvalRequest.resolvedAt
+                        ? new Date(releaseApprovalWorkflow.approvalRequest.resolvedAt).toLocaleString()
+                        : '—'}
+                    </span>
+                  </div>
+                  {releaseApprovalWorkflow.approvalRequest.exceptionReason && (
+                    <div className="pt-1">
+                      <span className="text-amber-500 font-semibold block mb-1 flex items-center gap-1">
+                        <AlertOctagon className="w-3.5 h-3.5" /> Policy Exception Override Reason:
+                      </span>
+                      <p className="text-[var(--text-primary)] bg-amber-500/10 p-2 rounded border border-amber-500/20 whitespace-pre-wrap">
+                        {releaseApprovalWorkflow.approvalRequest.exceptionReason}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Audit Event History Timeline */}
+          <div className="p-6 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] space-y-4">
+            <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
+              <History className="w-4 h-4 text-indigo-500" />
+              Immutable Governance Audit History
+            </h3>
+
+            {releaseApprovalWorkflow?.events && releaseApprovalWorkflow.events.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-[var(--surface)] text-[var(--text-muted)] uppercase tracking-wider border-b border-[var(--border)]">
+                    <tr>
+                      <th className="py-2.5 px-3">Event Type</th>
+                      <th className="py-2.5 px-3">Actor</th>
+                      <th className="py-2.5 px-3">Transition</th>
+                      <th className="py-2.5 px-3">Reason / Audit Trail</th>
+                      <th className="py-2.5 px-3 text-right">Timestamp</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--border)]">
+                    {releaseApprovalWorkflow.events.map((evt) => (
+                      <tr key={evt.id} className="hover:bg-[var(--surface)]/50 transition-colors">
+                        <td className="py-2.5 px-3">
+                          <span
+                            className={`px-2 py-0.5 rounded font-mono font-bold text-[10px] uppercase border ${
+                              evt.eventType === 'APPROVED'
+                                ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                                : evt.eventType === 'EXCEPTION_GRANTED'
+                                ? 'bg-purple-500/10 text-purple-400 border-purple-500/20'
+                                : evt.eventType === 'REJECTED'
+                                ? 'bg-red-500/10 text-red-500 border-red-500/20'
+                                : 'bg-blue-500/10 text-blue-500 border-blue-500/20'
+                            }`}
+                          >
+                            {evt.eventType}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 font-medium text-[var(--text-primary)]">
+                          {evt.actorUser?.name || evt.actorUser?.email || 'System'}
+                        </td>
+                        <td className="py-2.5 px-3 text-[var(--text-secondary)] font-mono text-[11px]">
+                          {evt.previousStatus || 'NONE'} → {evt.newStatus}
+                        </td>
+                        <td className="py-2.5 px-3 text-[var(--text-primary)] max-w-xs truncate">
+                          {evt.reason || '—'}
+                        </td>
+                        <td className="py-2.5 px-3 text-right text-[var(--text-muted)] font-mono text-[11px]">
+                          {new Date(evt.createdAt).toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="p-8 text-center rounded-lg border border-dashed border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)]">
+                <Clock className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                <p>No governance audit events recorded yet.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Governance Modal */}
+      {activeGovernanceModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-lg rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] shadow-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
+              <h3 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
+                {activeGovernanceModal === 'request' && <FileSignature className="w-5 h-5 text-indigo-500" />}
+                {activeGovernanceModal === 'approve' && <CheckCircle2 className="w-5 h-5 text-emerald-500" />}
+                {activeGovernanceModal === 'reject' && <XCircle className="w-5 h-5 text-red-500" />}
+                {activeGovernanceModal === 'exception' && <AlertOctagon className="w-5 h-5 text-amber-500" />}
+                {activeGovernanceModal === 'request' && 'Request Release Approval'}
+                {activeGovernanceModal === 'approve' && 'Approve Release'}
+                {activeGovernanceModal === 'reject' && 'Reject Release'}
+                {activeGovernanceModal === 'exception' && 'Grant Administrative Policy Exception'}
+              </h3>
+              <button
+                type="button"
+                onClick={handleCloseGovernanceModal}
+                className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+              >
+                ✕
+              </button>
+            </div>
+
+            {activeGovernanceModal === 'exception' && (
+              <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-500 space-y-1">
+                <span className="font-bold flex items-center gap-1.5">
+                  <AlertOctagon className="w-4 h-4" /> Administrative Policy Override Warning:
+                </span>
+                <p>
+                  Granting a policy exception allows deployment of a BLOCKED release. This action is permanently recorded in immutable audit logs with your identity and mandatory business justification.
+                </p>
+              </div>
+            )}
+
+            {governanceError && (
+              <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-500">
+                {governanceError}
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-[var(--text-secondary)] flex justify-between">
+                <span>Reason & Justification (Mandatory)</span>
+                <span className={governanceReason.length > 2000 ? 'text-red-500 font-bold' : 'text-[var(--text-muted)]'}>
+                  {governanceReason.length} / 2000
+                </span>
+              </label>
+              <textarea
+                value={governanceReason}
+                onChange={(e) => setGovernanceReason(e.target.value)}
+                placeholder={
+                  activeGovernanceModal === 'exception'
+                    ? 'State the critical business rationale and risk mitigation steps for this override...'
+                    : 'Provide detailed context for this release governance decision...'
+                }
+                rows={4}
+                maxLength={2000}
+                className="w-full p-3 text-xs rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={handleCloseGovernanceModal}
+                disabled={submittingGovernance}
+                className="px-4 py-2 text-xs font-semibold rounded-lg border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface)] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmitGovernanceAction}
+                disabled={submittingGovernance || !governanceReason.trim() || governanceReason.length > 2000}
+                className={`px-4 py-2 text-xs font-semibold rounded-lg text-white shadow-sm transition-colors disabled:opacity-50 ${
+                  activeGovernanceModal === 'exception'
+                    ? 'bg-amber-600 hover:bg-amber-700'
+                    : activeGovernanceModal === 'reject'
+                    ? 'bg-red-600 hover:bg-red-700'
+                    : activeGovernanceModal === 'approve'
+                    ? 'bg-emerald-600 hover:bg-emerald-700'
+                    : 'bg-indigo-600 hover:bg-indigo-700'
+                }`}
+              >
+                {submittingGovernance ? 'Submitting...' : 'Confirm Action'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

@@ -61,6 +61,16 @@ import {
   GitHubCheckLatestResponseDto,
   GitHubCheckPublishResponseDto,
   PublishGitHubCheckRequestDto,
+  ReleaseApprovalStatus,
+  ReleaseApprovalResolution,
+  ReleaseApprovalEventType,
+  EffectiveReleaseAuthorization,
+  ReleaseApprovalEventDto,
+  ReleaseApprovalDto,
+  ReleaseApprovalWorkflowResponseDto,
+  RequestReleaseApprovalRequestDto,
+  ResolveReleaseApprovalRequestDto,
+  GrantReleaseExceptionRequestDto,
 } from '@impactra/shared';
 
 export function getApiBaseUrl(): string {
@@ -1179,4 +1189,111 @@ export async function apiPublishGitHubCheck(
     },
   );
   return handleResponse<GitHubCheckPublishResponseDto>(res);
+}
+
+// ==========================================
+// Phase 10: Release Approval & Exception Workflow
+// ==========================================
+
+export async function apiGetReleaseApprovalWorkflow(
+  organizationId: string,
+  changeSetId: string,
+  assessmentId?: string,
+): Promise<ReleaseApprovalWorkflowResponseDto> {
+  const query = assessmentId ? `?assessmentId=${encodeURIComponent(assessmentId)}` : '';
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/changes/${changeSetId}/release-approval${query}`,
+    {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+    },
+  );
+  return handleResponse<ReleaseApprovalWorkflowResponseDto>(res);
+}
+export async function apiPostRequestReleaseApproval(
+  organizationId: string,
+  changeSetId: string,
+  body: RequestReleaseApprovalRequestDto,
+): Promise<ReleaseApprovalWorkflowResponseDto> {
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/changes/${changeSetId}/release-approval/request`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+      body: JSON.stringify(body),
+    },
+  );
+  return handleResponse<ReleaseApprovalWorkflowResponseDto>(res);
+}
+export async function apiPostApproveRelease(
+  organizationId: string,
+  changeSetId: string,
+  approvalId: string,
+  body: ResolveReleaseApprovalRequestDto,
+): Promise<ReleaseApprovalWorkflowResponseDto> {
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/changes/${changeSetId}/release-approval/${approvalId}/approve`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+      body: JSON.stringify(body),
+    },
+  );
+  return handleResponse<ReleaseApprovalWorkflowResponseDto>(res);
+}
+export async function apiPostRejectRelease(
+  organizationId: string,
+  changeSetId: string,
+  approvalId: string,
+  body: ResolveReleaseApprovalRequestDto,
+): Promise<ReleaseApprovalWorkflowResponseDto> {
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/changes/${changeSetId}/release-approval/${approvalId}/reject`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+      body: JSON.stringify(body),
+    },
+  );
+  return handleResponse<ReleaseApprovalWorkflowResponseDto>(res);
+}
+export async function apiPostGrantReleaseException(
+  organizationId: string,
+  changeSetId: string,
+  approvalId: string,
+  body: GrantReleaseExceptionRequestDto,
+): Promise<ReleaseApprovalWorkflowResponseDto> {
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/changes/${changeSetId}/release-approval/${approvalId}/exception`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+      body: JSON.stringify(body),
+    },
+  );
+  return handleResponse<ReleaseApprovalWorkflowResponseDto>(res);
 }

@@ -16,7 +16,7 @@ import { RequestWithId } from '../middleware/request-id.middleware';
  */
 export function sanitizeLogContent(input: string): string {
   return input
-    // Mask URI credentials: postgresql://user:pass@host:port -> postgresql://[REDACTED]:[REDACTED]@host:port
+    // Mask URI credentials into safe sanitized placeholders
     .replace(
       /([a-zA-Z][a-zA-Z0-9+.-]*:\/\/)([^:@\s]+):([^@\s]+)@/g,
       '$1[REDACTED]:[REDACTED]@',
@@ -79,9 +79,11 @@ export class AllExceptionsFilter implements ExceptionFilter {
               : exception.message;
 
         code =
-          typeof respObj.error === 'string'
-            ? respObj.error.toUpperCase().replace(/\s+/g, '_')
-            : this.deriveErrorCode(statusCode);
+          typeof respObj.code === 'string'
+            ? respObj.code
+            : typeof respObj.error === 'string'
+              ? respObj.error.toUpperCase().replace(/\s+/g, '_')
+              : this.deriveErrorCode(statusCode);
 
         if (Array.isArray(respObj.message)) {
           details = respObj.message;

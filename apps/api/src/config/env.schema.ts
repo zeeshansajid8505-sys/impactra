@@ -6,18 +6,18 @@ export const envSchema = z.object({
     .default('development'),
   PORT: z.coerce.number().int().positive().default(3001),
   DATABASE_URL: z
-    .string({ required_error: 'DATABASE_URL is required' })
+    .string({ message: 'DATABASE_URL is required' })
     .min(1, 'DATABASE_URL cannot be empty'),
   REDIS_URL: z
-    .string({ required_error: 'REDIS_URL is required' })
+    .string({ message: 'REDIS_URL is required' })
     .min(1, 'REDIS_URL cannot be empty'),
   MINIO_ENDPOINT: z.string().default('localhost'),
   MINIO_PORT: z.coerce.number().int().positive().default(9000),
   MINIO_ACCESS_KEY: z
-    .string({ required_error: 'MINIO_ACCESS_KEY is required' })
+    .string({ message: 'MINIO_ACCESS_KEY is required' })
     .min(1, 'MINIO_ACCESS_KEY cannot be empty'),
   MINIO_SECRET_KEY: z
-    .string({ required_error: 'MINIO_SECRET_KEY is required' })
+    .string({ message: 'MINIO_SECRET_KEY is required' })
     .min(1, 'MINIO_SECRET_KEY cannot be empty'),
   MINIO_USE_SSL: z
     .preprocess((val) => {
