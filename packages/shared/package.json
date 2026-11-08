@@ -1,6 +1,6 @@
 {
   "name": "@impactra/shared",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -21,4 +21,3 @@
     "typescript": "^5.7.3"
   }
 }
-

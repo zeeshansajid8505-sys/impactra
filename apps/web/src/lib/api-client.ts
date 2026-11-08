@@ -91,14 +91,16 @@ import {
 
 export function getApiBaseUrl(): string {
   if (typeof window !== 'undefined') {
-    if (
-      process.env.NEXT_PUBLIC_API_URL &&
-      !process.env.NEXT_PUBLIC_API_URL.includes('localhost:3001') &&
-      !process.env.NEXT_PUBLIC_API_URL.includes('impactra.local:3001')
-    ) {
+    if (process.env.NEXT_PUBLIC_API_URL) {
       return process.env.NEXT_PUBLIC_API_URL;
     }
-    return `${window.location.protocol}//${window.location.hostname}:3001`;
+    const hostname = window.location.hostname;
+    // Local development mode: explicit port 3001
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === 'impactra.local') {
+      return `${window.location.protocol}//${hostname}:3001`;
+    }
+    // Production mode behind reverse proxy: path-based routing (/api) or origin
+    return `${window.location.origin}/api`;
   }
   return process.env.NEXT_PUBLIC_API_URL || 'http://impactra-api:3001';
 }

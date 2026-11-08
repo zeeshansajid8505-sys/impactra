@@ -1,0 +1,172 @@
+name: Impactra CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Build, Lint, Test & Security Verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    services:
+      postgres:
+        image: postgres:17.4-alpine
+        env:
+          POSTGRES_USER: impactra_app
+          POSTGRES_PASSWORD: impactra_ci_test_password
+          POSTGRES_DB: impactra
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7.4.2-alpine
+        ports:
+          - 6380:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      minio:
+        image: quay.io/minio/minio:RELEASE.2025-02-07T23-21-09Z
+        command: server /data
+        env:
+          MINIO_ROOT_USER: impactra_ci_minio_user
+          MINIO_ROOT_PASSWORD: impactra_ci_minio_secret
+        ports:
+          - 9000:9000
+        options: >-
+          --health-cmd "curl -fsS http://localhost:9000/minio/health/live || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      NODE_ENV: test
+      NODE_OPTIONS: "--max-old-space-size=2048"
+      DATABASE_URL: "postgresql://impactra_app:impactra_ci_test_password@127.0.0.1:5433/impactra?schema=public"
+      REDIS_URL: "redis://127.0.0.1:6380"
+      MINIO_ENDPOINT: "127.0.0.1"
+      MINIO_PORT: "9000"
+      MINIO_ACCESS_KEY: "impactra_ci_minio_user"
+      MINIO_SECRET_KEY: "impactra_ci_minio_secret"
+      MINIO_USE_SSL: "false"
+      MINIO_BUCKET: "impactra-artifacts"
+      STORAGE_ENDPOINT: "127.0.0.1"
+      STORAGE_PORT: "9000"
+      STORAGE_ACCESS_KEY: "impactra_ci_minio_user"
+      STORAGE_SECRET_KEY: "impactra_ci_minio_secret"
+      STORAGE_USE_SSL: "false"
+      STORAGE_BUCKET: "impactra-artifacts"
+      CORS_ORIGIN: "http://localhost:3000,http://impactra.local"
+      COOKIE_SECURE: "false"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js 24.21.0
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.21.0"
+
+      - name: Enable Corepack & Prepare pnpm 12.3.4
+        run: |
+          corepack enable
+          corepack prepare pnpm@12.3.4 --activate
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Repository Hygiene (Diff & Whitespace Check)
+        run: git --no-pager diff --check
+
+      - name: Scan for forbidden test markers (.only, .skip)
+        run: |
+          node -e '
+            const fs = require("fs");
+            const path = require("path");
+            function walk(dir) {
+              let res = [];
+              if (!fs.existsSync(dir)) return res;
+              for (const f of fs.readdirSync(dir)) {
+                const full = path.join(dir, f);
+                if (fs.statSync(full).isDirectory()) res = res.concat(walk(full));
+                else if (f.endsWith(".ts") || f.endsWith(".tsx")) res.push(full);
+              }
+              return res;
+            }
+            const testFiles = ["apps/api/src", "apps/api/test"].flatMap(walk);
+            let failed = false;
+            for (const tf of testFiles) {
+              const src = fs.readFileSync(tf, "utf8");
+              if (src.includes(".only(") || src.includes(".skip(")) {
+                console.error("Forbidden test marker found in:", tf);
+                failed = true;
+              }
+            }
+            if (failed) process.exit(1);
+            console.log("No forbidden test markers found.");
+          '
+
+      - name: Build shared packages
+        run: |
+          pnpm --filter @impactra/shared build
+          pnpm --filter @impactra/database build
+
+      - name: Deploy Prisma Migrations (Test DB)
+        run: pnpm --filter @impactra/database exec prisma migrate deploy
+
+      - name: API Quality Gates (Lint, Typecheck, Build)
+        run: |
+          pnpm --filter @impactra/api lint
+          pnpm --filter @impactra/api exec tsc --noEmit --pretty false
+          pnpm --filter @impactra/api build
+
+      - name: API Unit Tests
+        run: pnpm --filter @impactra/api test -- --runInBand
+
+      - name: API E2E Tests (with open-handles detection)
+        run: pnpm --filter @impactra/api exec jest --config test/jest-e2e.json --runInBand --detectOpenHandles
+
+      - name: Web Quality Gates (Lint, Typecheck, Build)
+        run: |
+          pnpm --filter @impactra/web lint
+          pnpm --filter @impactra/web exec tsc --noEmit
+          pnpm --filter @impactra/web build
+
+      - name: Production Dependency Vulnerability Audit
+        run: pnpm audit --prod

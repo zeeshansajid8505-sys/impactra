@@ -1,0 +1,59 @@
+# ==============================================================================
+# Impactra Production Reverse Proxy Configuration (Caddy)
+# Provides automatic HTTPS certificate provisioning, HTTP-to-HTTPS redirect,
+# Next.js frontend proxy, NestJS API proxy, and GitHub webhook handling.
+# ==============================================================================
+
+{
+    email admin@example.com
+}
+
+{$WEB_DOMAIN:impactra.example.com} {
+    # Security headers
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "camera=(), microphone=(), geolocation=()"
+    }
+
+    # API endpoints and health checks forwarded to NestJS API
+    handle /api/* {
+        uri strip_prefix /api
+        reverse_proxy impactra-api:3001 {
+            header_up X-Forwarded-Proto {scheme}
+            header_up X-Real-IP {remote_host}
+        }
+    }
+
+    handle /github/webhooks {
+        reverse_proxy impactra-api:3001 {
+            request_buffers 10MB
+            header_up X-Forwarded-Proto {scheme}
+            header_up X-Real-IP {remote_host}
+        }
+    }
+
+    handle /health {
+        reverse_proxy impactra-api:3001
+    }
+
+    handle /ready {
+        reverse_proxy impactra-api:3001
+    }
+
+    # Static Next.js caching
+    handle /_next/static/* {
+        header Cache-Control "public, max-age=31536000, immutable"
+        reverse_proxy impactra-web:3000
+    }
+
+    # Frontend Next.js application
+    handle {
+        reverse_proxy impactra-web:3000 {
+            header_up X-Forwarded-Proto {scheme}
+            header_up X-Real-IP {remote_host}
+        }
+    }
+}

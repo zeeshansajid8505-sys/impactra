@@ -5,12 +5,36 @@ export const envSchema = z.object({
     .enum(['development', 'production', 'test'])
     .default('development'),
   PORT: z.coerce.number().int().positive().default(3001),
+  WEB_URL: z.string().url().optional(),
+  API_URL: z.string().url().optional(),
   DATABASE_URL: z
     .string({ message: 'DATABASE_URL is required' })
     .min(1, 'DATABASE_URL cannot be empty'),
   REDIS_URL: z
     .string({ message: 'REDIS_URL is required' })
     .min(1, 'REDIS_URL cannot be empty'),
+  STORAGE_ENDPOINT: z.string().optional(),
+  STORAGE_PORT: z.coerce.number().int().positive().optional(),
+  STORAGE_REGION: z.string().optional(),
+  STORAGE_BUCKET: z.string().optional(),
+  STORAGE_ACCESS_KEY: z.string().optional(),
+  STORAGE_SECRET_KEY: z.string().optional(),
+  STORAGE_USE_SSL: z
+    .preprocess((val) => {
+      if (typeof val === 'string') {
+        return val.toLowerCase() === 'true' || val === '1';
+      }
+      return Boolean(val);
+    }, z.boolean())
+    .optional(),
+  STORAGE_FORCE_PATH_STYLE: z
+    .preprocess((val) => {
+      if (typeof val === 'string') {
+        return val.toLowerCase() === 'true' || val === '1';
+      }
+      return Boolean(val);
+    }, z.boolean())
+    .optional(),
   MINIO_ENDPOINT: z.string().default('localhost'),
   MINIO_PORT: z.coerce.number().int().positive().default(9000),
   MINIO_ACCESS_KEY: z

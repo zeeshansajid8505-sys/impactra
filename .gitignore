@@ -26,6 +26,9 @@ test-results/
 *.pem
 *.key
 *.cert
+*.crt
+*.pfx
+*.p12
 
 # Logs
 logs/
@@ -43,6 +46,12 @@ prisma/*.db
 minio-data/
 postgres-data/
 redis-data/
+dump.rdb
+
+# SSL & Certificates
+deploy/nginx/ssl/*
+!deploy/nginx/ssl/.gitkeep
+certbot/
 
 # IDE & OS files
 .DS_Store
@@ -59,4 +68,4 @@ Thumbs.db
 tmp/
 temp/
 scratch/
-
+.system_generated/

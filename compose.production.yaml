@@ -1,0 +1,209 @@
+# ==============================================================================
+# Impactra Platform — Production Docker Compose Architecture
+# Usage:
+#   docker compose -f compose.production.yaml up -d --build
+# Ensure production environment variables are configured before launching.
+# ==============================================================================
+
+services:
+  # ----------------------------------------------------------------------------
+  # 1. Reverse Proxy & SSL Termination (Nginx)
+  # ----------------------------------------------------------------------------
+  impactra-proxy:
+    image: nginx:1.27-alpine
+    container_name: impactra-proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - impactra_nginx_ssl:/etc/nginx/ssl:ro
+      - certbot_challenge:/var/www/certbot:ro
+    depends_on:
+      impactra-web:
+        condition: service_healthy
+      impactra-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - impactra-prod-network
+
+  # ----------------------------------------------------------------------------
+  # 2. Frontend Web Application (Next.js Standalone, Non-Root)
+  # ----------------------------------------------------------------------------
+  impactra-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: impactra-web
+    restart: unless-stopped
+    expose:
+      - "3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-https://api.impactra.example.com}
+    depends_on:
+      impactra-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    networks:
+      - impactra-prod-network
+
+  # ----------------------------------------------------------------------------
+  # 3. Backend API & Engine (NestJS, Non-Root)
+  # ----------------------------------------------------------------------------
+  impactra-api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: impactra-api
+    restart: unless-stopped
+    expose:
+      - "3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - WEB_URL=${WEB_URL:-https://impactra.example.com}
+      - API_URL=${API_URL:-https://api.impactra.example.com}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://${POSTGRES_USER:-impactra_app}:${POSTGRES_PASSWORD:-CHANGE_ME_PASSWORD}@impactra-postgres:5432/${POSTGRES_DB:-impactra}?schema=public}
+      - REDIS_URL=${REDIS_URL:-redis://impactra-redis:6379}
+      - STORAGE_ENDPOINT=${STORAGE_ENDPOINT:-impactra-minio}
+      - STORAGE_PORT=${STORAGE_PORT:-9000}
+      - STORAGE_REGION=${STORAGE_REGION:-us-east-1}
+      - STORAGE_BUCKET=${STORAGE_BUCKET:-impactra-artifacts}
+      - STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY:-${MINIO_ACCESS_KEY:-CHANGE_ME_STORAGE_KEY}}
+      - STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY:-${MINIO_SECRET_KEY:-CHANGE_ME_STORAGE_SECRET}}
+      - STORAGE_USE_SSL=${STORAGE_USE_SSL:-false}
+      - STORAGE_FORCE_PATH_STYLE=${STORAGE_FORCE_PATH_STYLE:-true}
+      - MINIO_ENDPOINT=${STORAGE_ENDPOINT:-impactra-minio}
+      - MINIO_PORT=${STORAGE_PORT:-9000}
+      - MINIO_ACCESS_KEY=${STORAGE_ACCESS_KEY:-${MINIO_ACCESS_KEY:-CHANGE_ME_STORAGE_KEY}}
+      - MINIO_SECRET_KEY=${STORAGE_SECRET_KEY:-${MINIO_SECRET_KEY:-CHANGE_ME_STORAGE_SECRET}}
+      - MINIO_USE_SSL=${STORAGE_USE_SSL:-false}
+      - MINIO_BUCKET=${STORAGE_BUCKET:-impactra-artifacts}
+      - CORS_ORIGIN=${CORS_ORIGIN:-https://impactra.example.com,https://api.impactra.example.com}
+      - COOKIE_SECURE=${COOKIE_SECURE:-true}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - GITHUB_APP_ID=${GITHUB_APP_ID:-}
+      - GITHUB_APP_SLUG=${GITHUB_APP_SLUG:-}
+      - GITHUB_APP_PRIVATE_KEY_BASE64=${GITHUB_APP_PRIVATE_KEY_BASE64:-}
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET:-}
+      - GITHUB_API_URL=${GITHUB_API_URL:-https://api.github.com}
+      - GITHUB_WEB_URL=${GITHUB_WEB_URL:-https://github.com}
+    depends_on:
+      impactra-postgres:
+        condition: service_healthy
+      impactra-redis:
+        condition: service_healthy
+      impactra-minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3001/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - impactra-prod-network
+
+  # ----------------------------------------------------------------------------
+  # 4. Database (PostgreSQL 17 Alpine)
+  # ----------------------------------------------------------------------------
+  impactra-postgres:
+    image: postgres:17.4-alpine
+    container_name: impactra-postgres
+    restart: unless-stopped
+    expose:
+      - "5432"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-impactra_app}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-CHANGE_ME_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB:-impactra}
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - impactra_postgres_prod_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-impactra_app} -d ${POSTGRES_DB:-impactra}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - impactra-prod-network
+
+  # ----------------------------------------------------------------------------
+  # 5. Redis (Redis 7 Alpine)
+  # ----------------------------------------------------------------------------
+  impactra-redis:
+    image: redis:7.4.2-alpine
+    container_name: impactra-redis
+    restart: unless-stopped
+    expose:
+      - "6379"
+    volumes:
+      - impactra_redis_prod_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - impactra-prod-network
+
+  # ----------------------------------------------------------------------------
+  # 6. S3-Compatible Object Storage (MinIO Self-Hosted Option)
+  # ----------------------------------------------------------------------------
+  impactra-minio:
+    image: quay.io/minio/minio:RELEASE.2025-02-07T23-21-09Z
+    container_name: impactra-minio
+    restart: unless-stopped
+    command: server /data
+    expose:
+      - "9000"
+    environment:
+      - MINIO_ROOT_USER=${STORAGE_ACCESS_KEY:-${MINIO_ACCESS_KEY:-CHANGE_ME_STORAGE_KEY}}
+      - MINIO_ROOT_PASSWORD=${STORAGE_SECRET_KEY:-${MINIO_SECRET_KEY:-CHANGE_ME_STORAGE_SECRET}}
+    volumes:
+      - impactra_minio_prod_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9000/minio/health/live >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - impactra-prod-network
+
+# ------------------------------------------------------------------------------
+# Networks & Persistent Volumes
+# ------------------------------------------------------------------------------
+networks:
+  impactra-prod-network:
+    driver: bridge
+    name: impactra-prod-network
+
+volumes:
+  impactra_postgres_prod_data:
+    name: impactra_postgres_prod_data
+  impactra_redis_prod_data:
+    name: impactra_redis_prod_data
+  impactra_minio_prod_data:
+    name: impactra_minio_prod_data
+  impactra_nginx_ssl:
+    name: impactra_nginx_ssl
+  certbot_challenge:
+    name: certbot_challenge

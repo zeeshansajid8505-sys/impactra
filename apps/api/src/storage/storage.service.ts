@@ -24,6 +24,7 @@ export class StorageService implements OnModuleInit {
 
   constructor(private readonly configService: ConfigService) {
     this.bucketName =
+      process.env.STORAGE_BUCKET ||
       this.configService.get<string>('app.minio.bucket') ||
       process.env.MINIO_BUCKET ||
       'impactra-artifacts';
@@ -31,42 +32,66 @@ export class StorageService implements OnModuleInit {
 
   onModuleInit(): void {
     const endpointHost =
+      process.env.STORAGE_ENDPOINT ||
       this.configService.get<string>('app.minio.endpoint') ||
       process.env.MINIO_ENDPOINT ||
       'localhost';
-    const port =
+    const portRaw =
+      process.env.STORAGE_PORT ||
       this.configService.get<number>('app.minio.port') ||
-      parseInt(process.env.MINIO_PORT || '9000', 10);
+      process.env.MINIO_PORT ||
+      '9000';
+    const port = parseInt(String(portRaw), 10);
     const useSSL =
-      this.configService.get<boolean>('app.minio.useSSL') ??
-      process.env.MINIO_USE_SSL === 'true';
+      process.env.STORAGE_USE_SSL !== undefined
+        ? process.env.STORAGE_USE_SSL === 'true'
+        : (this.configService.get<boolean>('app.minio.useSSL') ??
+           process.env.MINIO_USE_SSL === 'true');
     const accessKey =
+      process.env.STORAGE_ACCESS_KEY ||
       this.configService.get<string>('app.minio.accessKey') ||
       process.env.MINIO_ACCESS_KEY ||
       '';
     const secretKey =
+      process.env.STORAGE_SECRET_KEY ||
       this.configService.get<string>('app.minio.secretKey') ||
       process.env.MINIO_SECRET_KEY ||
       '';
+    const region =
+      process.env.STORAGE_REGION ||
+      process.env.AWS_REGION ||
+      'us-east-1';
 
-    const protocol = useSSL ? 'https' : 'http';
-    const endpoint = `${protocol}://${endpointHost}:${port}`;
+    let endpoint: string;
+    if (endpointHost.startsWith('http://') || endpointHost.startsWith('https://')) {
+      endpoint = endpointHost;
+    } else {
+      const protocol = useSSL ? 'https' : 'http';
+      endpoint = (port && port !== 80 && port !== 443)
+        ? `${protocol}://${endpointHost}:${port}`
+        : `${protocol}://${endpointHost}`;
+    }
+
+    const forcePathStyle =
+      process.env.STORAGE_FORCE_PATH_STYLE !== undefined
+        ? process.env.STORAGE_FORCE_PATH_STYLE === 'true'
+        : !endpointHost.includes('amazonaws.com');
 
     try {
       this.s3Client = new S3Client({
         endpoint,
-        region: 'us-east-1',
+        region,
         credentials: {
           accessKeyId: accessKey,
           secretAccessKey: secretKey,
         },
-        forcePathStyle: true, // Required for MinIO
+        forcePathStyle,
       });
 
-      this.logger.log(`MinIO storage client initialized for ${endpoint}`);
+      this.logger.log(`S3-compatible storage client initialized for ${endpoint}`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      this.logger.error(`Failed to initialize MinIO S3 client: ${msg}`);
+      this.logger.error(`Failed to initialize S3 storage client: ${msg}`);
     }
   }
 
@@ -101,7 +126,7 @@ export class StorageService implements OnModuleInit {
 
   async ping(): Promise<DependencyStatus> {
     if (!this.s3Client) {
-      return { status: 'unhealthy', error: 'MinIO S3 client not initialized' };
+      return { status: 'unhealthy', error: 'Storage S3 client not initialized' };
     }
 
     const start = Date.now();
@@ -112,7 +137,7 @@ export class StorageService implements OnModuleInit {
         latencyMs: Date.now() - start,
       };
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'MinIO ping failed';
+      const msg = err instanceof Error ? err.message : 'Storage S3 ping failed';
       return {
         status: 'unhealthy',
         error: msg,

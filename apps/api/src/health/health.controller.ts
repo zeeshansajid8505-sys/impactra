@@ -31,7 +31,7 @@ export class HealthController {
         timestamp: '2026-09-20T12:00:00.000Z',
         uptime: 42.5,
         service: 'impactra-api',
-        version: '0.1.0',
+        version: '1.0.0',
       },
     },
   })

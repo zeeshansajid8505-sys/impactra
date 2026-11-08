@@ -23,6 +23,8 @@ async function bootstrap() {
     helmet({
       contentSecurityPolicy: process.env.NODE_ENV === 'production' ? undefined : false,
       crossOriginEmbedderPolicy: false,
+      hsts: process.env.NODE_ENV === 'production' ? { maxAge: 31536000, includeSubDomains: true } : false,
+      referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
     }),
   );
 
@@ -52,6 +54,15 @@ async function bootstrap() {
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
+
+  if (process.env.WEB_URL) {
+    try {
+      const parsedOrigin = new URL(process.env.WEB_URL).origin;
+      if (!allowedOrigins.includes(parsedOrigin)) {
+        allowedOrigins.push(parsedOrigin);
+      }
+    } catch {}
+  }
 
   app.enableCors({
     origin: (
@@ -83,7 +94,7 @@ async function bootstrap() {
     .setDescription(
       'Impactra — AI-Powered Software Change Intelligence & Release Safety Platform API foundation.',
     )
-    .setVersion('0.1.0')
+    .setVersion('1.0.0')
     .addTag('Health & Readiness', 'Liveness and readiness dependency verification probes')
     .addTag('Authentication & Sessions', 'User registration, login, logout, and session lifecycle')
     .addTag('Organizations & Multi-Tenancy', 'Multi-tenant organization boundary and isolation')

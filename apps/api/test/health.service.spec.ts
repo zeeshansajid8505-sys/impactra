@@ -39,7 +39,7 @@ describe('HealthService', () => {
 
       expect(result.status).toBe('ok');
       expect(result.service).toBe('impactra-api');
-      expect(result.version).toBe('0.1.0');
+      expect(result.version).toBe('1.0.0');
       expect(typeof result.uptime).toBe('number');
       expect(new Date(result.timestamp).getTime()).not.toBeNaN();
     });

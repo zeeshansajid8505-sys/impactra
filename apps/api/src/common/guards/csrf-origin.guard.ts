@@ -16,10 +16,23 @@ export class CsrfOriginGuard implements CanActivate {
       process.env.CORS_ORIGIN ||
       'http://localhost:3000,http://impactra.local';
 
-    this.allowedOrigins = rawOrigins
+    const origins = rawOrigins
       .split(',')
       .map((o) => o.trim())
       .filter(Boolean);
+
+    const configuredWebUrl =
+      this.configService.get<string>('app.webUrl') || process.env.WEB_URL;
+    if (configuredWebUrl) {
+      try {
+        const parsedOrigin = new URL(configuredWebUrl).origin;
+        if (!origins.includes(parsedOrigin)) {
+          origins.push(parsedOrigin);
+        }
+      } catch {}
+    }
+
+    this.allowedOrigins = origins;
   }
 
   canActivate(context: ExecutionContext): boolean {

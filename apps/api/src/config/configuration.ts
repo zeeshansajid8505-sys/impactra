@@ -13,6 +13,8 @@ export default registerAs('app', () => {
   return {
     nodeEnv,
     port: parseInt(process.env.PORT || '3001', 10),
+    webUrl: process.env.WEB_URL,
+    apiUrl: process.env.API_URL,
     cookieSecure,
     databaseUrl: process.env.DATABASE_URL,
     redisUrl: process.env.REDIS_URL,

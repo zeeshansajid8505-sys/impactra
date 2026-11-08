@@ -11,10 +11,15 @@ const eslintConfig = [
   {
     ignores: [
       '.next/**',
+      'node_modules/**',
+      'coverage/**',
+      'dist/**',
       'out/**',
       'build/**',
       'next-env.d.ts',
-      'node_modules/**',
+      'eslint.config.mjs',
+      'next.config.mjs',
+      'postcss.config.mjs',
     ],
   },
 ];

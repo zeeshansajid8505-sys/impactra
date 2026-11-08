@@ -59,7 +59,7 @@ describe('Health & Readiness Endpoints (E2E)', () => {
     expect(response.body).toMatchObject({
       status: 'ok',
       service: 'impactra-api',
-      version: '0.1.0',
+      version: '1.0.0',
     });
     expect(typeof response.body.uptime).toBe('number');
     expect(response.body.timestamp).toBeDefined();
