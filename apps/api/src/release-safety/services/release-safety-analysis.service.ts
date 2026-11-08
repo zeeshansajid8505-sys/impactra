@@ -16,7 +16,9 @@ import { GitHubCheckPublicationService } from '../../github-checks/services/gith
 import {
   RELEASE_SAFETY_POLICY_VERSION,
 } from '../policy/release-safety-policy';
-import { ReleaseSafetyAssessmentDto } from '@impactra/shared';
+import { ReleaseSafetyAssessmentDto, ReleasePolicySnapshotDto } from '@impactra/shared';
+import { ReleasePolicyResolverService } from '../../release-policy/services/release-policy-resolver.service';
+import { ReleasePolicyEvaluatorService, EvaluatorContextInput } from '../../release-policy/services/release-policy-evaluator.service';
 
 @Injectable()
 export class ReleaseSafetyAnalysisService {
@@ -31,6 +33,12 @@ export class ReleaseSafetyAnalysisService {
     @Optional()
     @Inject(forwardRef(() => GitHubCheckPublicationService))
     private readonly gitHubCheckPublicationService?: GitHubCheckPublicationService,
+    @Optional()
+    @Inject(forwardRef(() => ReleasePolicyResolverService))
+    private readonly policyResolverService?: ReleasePolicyResolverService,
+    @Optional()
+    @Inject(forwardRef(() => ReleasePolicyEvaluatorService))
+    private readonly policyEvaluatorService?: ReleasePolicyEvaluatorService,
   ) {}
 
   /**
@@ -275,11 +283,81 @@ export class ReleaseSafetyAnalysisService {
       // 3. Compute score, risk level, decision
       const scoring = this.scoringService.calculateScore(signals);
 
-      // 4. Atomically persist results
+      // 4. Resolve and evaluate Release Policy (Phase 11)
+      let finalDecision = scoring.decision;
+      let policyId: string | null = null;
+      let policySnapshot: ReleasePolicySnapshotDto | null = null;
+
+      if (this.policyResolverService && this.policyEvaluatorService) {
+        try {
+          const changeSet = await this.databaseService.client.changeSet.findUnique({
+            where: { id: assessment.changeSetId },
+            select: { repositoryConnectionId: true, baseRef: true },
+          });
+
+          const resolved = await this.policyResolverService.resolveEffectivePolicy(
+            assessment.organizationId,
+            changeSet?.repositoryConnectionId,
+            changeSet?.baseRef,
+          );
+
+          const changedPaths = evidence.changedFiles
+            .map((f) => f.newPath || f.oldPath || '')
+            .filter(Boolean);
+
+          const context: EvaluatorContextInput = {
+            riskScore: scoring.score,
+            riskLevel: scoring.riskLevel,
+            signals: signals.map((s) => ({
+              ruleId: s.ruleId,
+              category: s.category,
+              severity: s.severity,
+              scoreDelta: s.scoreDelta,
+              blocking: s.blocking,
+              requiresReview: s.requiresReview,
+              title: s.title,
+            })),
+            blastRadius: {
+              affectedNodeCount: evidence.blastRadiusAnalysis.affectedNodeCount,
+              maxDepth: evidence.blastRadiusAnalysis.maxDepth,
+              rootCount: evidence.blastRadiusAnalysis.rootCount,
+            },
+            changedPaths,
+          };
+
+          const evaluation = this.policyEvaluatorService.evaluatePolicy(
+            context,
+            resolved.rules,
+            {
+              policyId: resolved.dto.policyId,
+              policyName: resolved.dto.policyName,
+              policyVersion: resolved.dto.policyVersion,
+              scope: resolved.dto.scope,
+              targetBranchPattern: resolved.dto.targetBranchPattern,
+            },
+          );
+
+          finalDecision = evaluation.finalDecision;
+          policyId = resolved.dto.policyId;
+          policySnapshot = evaluation.snapshot;
+        } catch (policyErr: unknown) {
+          const errDetail = policyErr instanceof Error ? policyErr.message : String(policyErr);
+          this.logger.warn(
+            `Policy resolution/evaluation failed for assessment '${assessmentId}', falling back to default scoring decision: ${errDetail}`,
+          );
+        }
+      }
+
+      // 5. Atomically persist results
       await this.persistenceService.persistAssessmentResult(
         assessmentId,
-        scoring,
+        {
+          ...scoring,
+          decision: finalDecision,
+        },
         signals,
+        policyId,
+        policySnapshot,
       );
 
       this.logger.log(

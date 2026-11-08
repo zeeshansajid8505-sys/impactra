@@ -16,6 +16,7 @@ import {
   ReleaseSafetyLatestResponseDto,
   ReleaseSafetySignalsResponseDto,
   ReleaseSafetyAssessmentsListResponseDto,
+  ReleasePolicySnapshotDto,
 } from '@impactra/shared';
 import {
   EvaluationEvidenceInput,
@@ -130,6 +131,8 @@ export class ReleaseSafetyPersistenceService {
     assessmentId: string,
     scoring: ScoringResult,
     signals: ComputedSignal[],
+    policyId?: string | null,
+    policySnapshot?: ReleasePolicySnapshotDto | null,
   ): Promise<ReleaseSafetyAssessmentDto> {
     return this.databaseService.client.$transaction(async (tx) => {
       // 1. Fetch current assessment
@@ -185,6 +188,8 @@ export class ReleaseSafetyPersistenceService {
           completedAt: new Date(),
           failureCode: null,
           failureMessage: null,
+          releasePolicyId: policyId ?? null,
+          policySnapshotJson: policySnapshot ? (policySnapshot as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
         },
         include: {
           signals: {
@@ -395,6 +400,8 @@ export class ReleaseSafetyPersistenceService {
       failureMessage: assessment.failureMessage,
       createdAt: assessment.createdAt.toISOString(),
       updatedAt: assessment.updatedAt.toISOString(),
+      releasePolicyId: assessment.releasePolicyId ?? null,
+      policySnapshot: (assessment.policySnapshotJson as unknown as ReleasePolicySnapshotDto) ?? null,
       signals: signals ? signals.map((s) => this.mapSignalToDto(s)) : undefined,
     };
   }

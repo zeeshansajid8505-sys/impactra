@@ -27,4 +27,9 @@ export enum Permission {
   RELEASE_APPROVAL_REQUEST = 'release_approval.request',
   RELEASE_APPROVAL_RESOLVE = 'release_approval.resolve',
   RELEASE_APPROVAL_EXCEPTION = 'release_approval.exception',
+  RELEASE_POLICY_READ = 'release_policy.read',
+  RELEASE_POLICY_CREATE = 'release_policy.create',
+  RELEASE_POLICY_UPDATE = 'release_policy.update',
+  RELEASE_POLICY_ACTIVATE = 'release_policy.activate',
+  RELEASE_POLICY_ARCHIVE = 'release_policy.archive',
 }

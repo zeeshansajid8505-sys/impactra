@@ -31,6 +31,7 @@ const PRIMARY_NAV_ITEMS: NavItem[] = [
   { label: 'Digital Twin', href: '/digital-twin/system-map' },
   { label: 'Intelligence', href: '/intelligence/blast-radius' },
   { label: 'Release', href: '/release/safety' },
+  { label: 'Policies', href: '/workspace/release-policies' },
 ];
 
 export function TopNav() {

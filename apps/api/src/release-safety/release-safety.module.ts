@@ -5,6 +5,7 @@ import { OrganizationsModule } from '../organizations/organizations.module';
 import { SessionsModule } from '../sessions/sessions.module';
 import { CacheModule } from '../cache/cache.module';
 import { GitHubChecksModule } from '../github-checks/github-checks.module';
+import { ReleasePolicyModule } from '../release-policy/release-policy.module';
 import { ReleaseSafetyRuleEngineService } from './services/release-safety-rule-engine.service';
 import { ReleaseSafetyScoringService } from './services/release-safety-scoring.service';
 import { ReleaseSafetyPersistenceService } from './services/release-safety-persistence.service';
@@ -23,6 +24,7 @@ import { OrganizationReleaseSafetyController } from './controllers/organization-
       name: 'release-safety-analysis',
     }),
     forwardRef(() => GitHubChecksModule),
+    forwardRef(() => ReleasePolicyModule),
   ],
   controllers: [OrganizationReleaseSafetyController],
   providers: [

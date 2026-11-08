@@ -273,4 +273,116 @@ describe('RBAC Permissions Policy — Ingestion & Digital Twin Matrix', () => {
       }
     });
   });
+describe('Permission.RELEASE_POLICY_READ', () => {
+    it('allows read access to all organization member roles', () => {
+      for (const role of allRoles) {
+        expect(hasPermission(role, Permission.RELEASE_POLICY_READ)).toBe(true);
+      }
+    });
+  });
+
+  describe('Permission.RELEASE_POLICY_CREATE', () => {
+    it('allows OWNER, ADMIN, ARCHITECT, RELEASE_MANAGER', () => {
+      const allowedRoles: MembershipRole[] = [
+        'OWNER',
+        'ADMIN',
+        'ARCHITECT',
+        'RELEASE_MANAGER',
+      ];
+      for (const role of allowedRoles) {
+        expect(hasPermission(role, Permission.RELEASE_POLICY_CREATE)).toBe(true);
+      }
+    });
+
+    it('denies DEVELOPER, SECURITY_ENGINEER, QA_ENGINEER, AUDITOR, VIEWER', () => {
+      const deniedRoles: MembershipRole[] = [
+        'DEVELOPER',
+        'SECURITY_ENGINEER',
+        'QA_ENGINEER',
+        'AUDITOR',
+        'VIEWER',
+      ];
+      for (const role of deniedRoles) {
+        expect(hasPermission(role, Permission.RELEASE_POLICY_CREATE)).toBe(false);
+      }
+    });
+  });
+
+  describe('Permission.RELEASE_POLICY_UPDATE', () => {
+    it('allows OWNER, ADMIN, ARCHITECT, RELEASE_MANAGER', () => {
+      const allowedRoles: MembershipRole[] = [
+        'OWNER',
+        'ADMIN',
+        'ARCHITECT',
+        'RELEASE_MANAGER',
+      ];
+      for (const role of allowedRoles) {
+        expect(hasPermission(role, Permission.RELEASE_POLICY_UPDATE)).toBe(true);
+      }
+    });
+
+    it('denies DEVELOPER, SECURITY_ENGINEER, QA_ENGINEER, AUDITOR, VIEWER', () => {
+      const deniedRoles: MembershipRole[] = [
+        'DEVELOPER',
+        'SECURITY_ENGINEER',
+        'QA_ENGINEER',
+        'AUDITOR',
+        'VIEWER',
+      ];
+      for (const role of deniedRoles) {
+        expect(hasPermission(role, Permission.RELEASE_POLICY_UPDATE)).toBe(false);
+      }
+    });
+  });
+
+  describe('Permission.RELEASE_POLICY_ACTIVATE', () => {
+    it('allows OWNER, ADMIN, RELEASE_MANAGER', () => {
+      const allowedRoles: MembershipRole[] = [
+        'OWNER',
+        'ADMIN',
+        'RELEASE_MANAGER',
+      ];
+      for (const role of allowedRoles) {
+        expect(hasPermission(role, Permission.RELEASE_POLICY_ACTIVATE)).toBe(true);
+      }
+    });
+
+    it('denies ARCHITECT, DEVELOPER, QA_ENGINEER, SECURITY_ENGINEER, AUDITOR, VIEWER', () => {
+      const deniedRoles: MembershipRole[] = [
+        'ARCHITECT',
+        'DEVELOPER',
+        'QA_ENGINEER',
+        'SECURITY_ENGINEER',
+        'AUDITOR',
+        'VIEWER',
+      ];
+      for (const role of deniedRoles) {
+        expect(hasPermission(role, Permission.RELEASE_POLICY_ACTIVATE)).toBe(false);
+      }
+    });
+  });
+
+  describe('Permission.RELEASE_POLICY_ARCHIVE', () => {
+    it('allows OWNER, ADMIN', () => {
+      const allowedRoles: MembershipRole[] = ['OWNER', 'ADMIN'];
+      for (const role of allowedRoles) {
+        expect(hasPermission(role, Permission.RELEASE_POLICY_ARCHIVE)).toBe(true);
+      }
+    });
+
+    it('denies ARCHITECT, DEVELOPER, RELEASE_MANAGER, QA_ENGINEER, SECURITY_ENGINEER, AUDITOR, VIEWER', () => {
+      const deniedRoles: MembershipRole[] = [
+        'ARCHITECT',
+        'DEVELOPER',
+        'RELEASE_MANAGER',
+        'QA_ENGINEER',
+        'SECURITY_ENGINEER',
+        'AUDITOR',
+        'VIEWER',
+      ];
+      for (const role of deniedRoles) {
+        expect(hasPermission(role, Permission.RELEASE_POLICY_ARCHIVE)).toBe(false);
+      }
+    });
+  });
 });

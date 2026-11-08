@@ -71,6 +71,22 @@ import {
   RequestReleaseApprovalRequestDto,
   ResolveReleaseApprovalRequestDto,
   GrantReleaseExceptionRequestDto,
+  ReleasePolicyStatus,
+  ReleasePolicyRuleType,
+  ReleasePolicyAction,
+  ReleasePolicyScope,
+  ReleasePolicyEventType,
+  ReleasePolicyRuleDto,
+  ReleasePolicyDto,
+  ReleasePolicyEventDto,
+  ReleasePolicyRuleEvaluationDto,
+  ReleasePolicySnapshotDto,
+  ReleasePolicyPreviewDto,
+  EffectiveReleasePolicyDto,
+  CreateReleasePolicyRequest,
+  UpdateReleasePolicyRequest,
+  PreviewReleasePolicyRequest,
+  ReleasePolicyListResponse,
 } from '@impactra/shared';
 
 export function getApiBaseUrl(): string {
@@ -1296,4 +1312,170 @@ export async function apiPostGrantReleaseException(
     },
   );
   return handleResponse<ReleaseApprovalWorkflowResponseDto>(res);
+}
+export async function apiListReleasePolicies(
+  organizationId: string,
+  params?: {
+    repositoryConnectionId?: string;
+    status?: ReleasePolicyStatus;
+    isDefault?: boolean;
+  },
+): Promise<ReleasePolicyDto[]> {
+  const query = new URLSearchParams();
+  if (params?.repositoryConnectionId) query.set('repositoryConnectionId', params.repositoryConnectionId);
+  if (params?.status) query.set('status', params.status);
+  if (params?.isDefault !== undefined) query.set('isDefault', String(params.isDefault));
+  const qs = query.toString() ? `?${query.toString()}` : '';
+
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/release-policies${qs}`,
+    {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+    },
+  );
+  return handleResponse<ReleasePolicyDto[]>(res);
+}
+
+export async function apiGetReleasePolicy(
+  organizationId: string,
+  policyId: string,
+): Promise<ReleasePolicyDto> {
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/release-policies/${policyId}`,
+    {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+    },
+  );
+  return handleResponse<ReleasePolicyDto>(res);
+}
+
+export async function apiCreateReleasePolicy(
+  organizationId: string,
+  body: CreateReleasePolicyRequest,
+): Promise<ReleasePolicyDto> {
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/release-policies`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+      body: JSON.stringify(body),
+    },
+  );
+  return handleResponse<ReleasePolicyDto>(res);
+}
+
+export async function apiUpdateReleasePolicy(
+  organizationId: string,
+  policyId: string,
+  body: UpdateReleasePolicyRequest,
+): Promise<ReleasePolicyDto> {
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/release-policies/${policyId}`,
+    {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+      body: JSON.stringify(body),
+    },
+  );
+  return handleResponse<ReleasePolicyDto>(res);
+}
+
+export async function apiActivateReleasePolicy(
+  organizationId: string,
+  policyId: string,
+): Promise<ReleasePolicyDto> {
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/release-policies/${policyId}/activate`,
+    {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+    },
+  );
+  return handleResponse<ReleasePolicyDto>(res);
+}
+
+export async function apiArchiveReleasePolicy(
+  organizationId: string,
+  policyId: string,
+): Promise<ReleasePolicyDto> {
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/release-policies/${policyId}/archive`,
+    {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+    },
+  );
+  return handleResponse<ReleasePolicyDto>(res);
+}
+
+export async function apiPreviewReleasePolicy(
+  organizationId: string,
+  body: PreviewReleasePolicyRequest,
+): Promise<ReleasePolicyPreviewDto> {
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/release-policies/preview`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+      body: JSON.stringify(body),
+    },
+  );
+  return handleResponse<ReleasePolicyPreviewDto>(res);
+}
+
+export async function apiGetEffectiveReleasePolicy(
+  organizationId: string,
+  repositoryConnectionId?: string,
+  targetBranch?: string,
+): Promise<EffectiveReleasePolicyDto> {
+  const query = new URLSearchParams();
+  if (repositoryConnectionId) query.set('repositoryConnectionId', repositoryConnectionId);
+  if (targetBranch) query.set('targetBranch', targetBranch);
+  const qs = query.toString() ? `?${query.toString()}` : '';
+
+  const res = await fetch(
+    `${getApiBaseUrl()}/organizations/${organizationId}/release-policies/effective${qs}`,
+    {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'x-organization-id': organizationId,
+      },
+      credentials: 'include',
+    },
+  );
+  return handleResponse<EffectiveReleasePolicyDto>(res);
 }

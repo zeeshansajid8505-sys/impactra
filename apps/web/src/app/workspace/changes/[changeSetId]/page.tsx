@@ -76,6 +76,8 @@ import {
   ReleaseApprovalStatus,
   ReleaseApprovalResolution,
   ReleaseApprovalEventDto,
+  ReleasePolicySnapshotDto,
+  ReleasePolicyRuleEvaluationDto,
 } from '@impactra/shared';
 
 type TabKey =

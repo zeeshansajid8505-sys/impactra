@@ -324,5 +324,36 @@ describe('GitHubCheckPayloadBuilderService', () => {
       expect(payload.output.summary).toContain('**Effective Authorization**: REJECTED');
       expect(payload.output.summary).toContain('**Approval**: REJECTED');
     });
+  it('incorporates Release Policy snapshot context and matched rules into output', () => {
+      const payload = service.buildPayload({
+        assessment: {
+          ...baseAssessment,
+          policySnapshotJson: {
+            policyName: 'Production Strict Safety Policy',
+            policyVersion: 3,
+            policyScope: 'REPOSITORY_BRANCH',
+            evaluationResults: [
+              {
+                ruleKey: 'strict_max_risk_score',
+                ruleType: 'MAX_RISK_SCORE',
+                action: 'REQUIRE_REVIEW',
+                matched: true,
+                reason: 'Score 65 exceeds configured threshold 50.',
+              },
+            ],
+          },
+        },
+        repositoryConnectionId: 'repo-1',
+        headSha: 'abcdef',
+        changeSetId: 'cs-1',
+      });
+
+      expect(payload.output.summary).toContain('**Policy**: Production Strict Safety Policy');
+      expect(payload.output.summary).toContain('**Policy Version**: 3');
+      expect(payload.output.summary).toContain('**Policy Scope**: REPOSITORY_BRANCH');
+      expect(payload.output.text).toContain('Matched Policy Rules');
+      expect(payload.output.text).toContain('strict_max_risk_score');
+      expect(payload.output.text).toContain('MAX_RISK_SCORE');
+    });
   });
 });

@@ -188,11 +188,28 @@ export class GitHubCheckPayloadBuilderService {
     );
     const externalId = this.buildExternalId(repositoryConnectionId, headSha);
 
+    const rawSnapshot = (assessment as any).policySnapshotJson;
+    const snapshot = rawSnapshot && typeof rawSnapshot === 'object' ? rawSnapshot : null;
+    const policyName = (snapshot?.policyName as string) || (snapshot ? 'Impactra Release Policy' : undefined);
+    const policyVer = snapshot?.policyVersion !== undefined ? snapshot.policyVersion : undefined;
+    const policyScope = (snapshot?.policyScope as string) || undefined;
+
     const summaryLines = [
       '### Impactra Release Safety Gate',
       '',
-      `- **Release Decision**: ${assessment.decision}`,
     ];
+
+    if (policyName) {
+      summaryLines.push(`- **Policy**: ${policyName}`);
+    }
+    if (policyVer !== undefined) {
+      summaryLines.push(`- **Policy Version**: ${policyVer}`);
+    }
+    if (policyScope) {
+      summaryLines.push(`- **Policy Scope**: ${policyScope}`);
+    }
+
+    summaryLines.push(`- **Release Decision**: ${assessment.decision}`);
 
     if (governance) {
       summaryLines.push(
@@ -250,7 +267,26 @@ export class GitHubCheckPayloadBuilderService {
       : [];
     const boundedSignals = allSignals.slice(0, MAX_SIGNALS_IN_CHECK_OUTPUT);
 
-    const textLines = ['### Evaluated Safety Signals', ''];
+    const textLines: string[] = [];
+
+    const snapshotObj = assessment.policySnapshotJson as Record<string, unknown> | null;
+    const evalResults = Array.isArray(snapshotObj?.evaluationResults)
+      ? (snapshotObj.evaluationResults as Array<{ ruleKey: string; ruleType: string; action: string; matched: boolean; reason: string }>).filter((r) => r.matched)
+      : [];
+
+    if (evalResults.length > 0) {
+      textLines.push('### Matched Policy Rules', '');
+      textLines.push('| Rule Key | Type | Action | Reason |');
+      textLines.push('|---|---|---|---|');
+      for (const pr of evalResults.slice(0, 5)) {
+        textLines.push(
+          '| `' + pr.ruleKey + '` | ' + pr.ruleType + ' | ' + pr.action + ' | ' + pr.reason.replace(/\|/g, '\\|') + ' |',
+        );
+      }
+      textLines.push('');
+    }
+
+    textLines.push('### Evaluated Safety Signals', '');
 
     if (boundedSignals.length === 0) {
       textLines.push(

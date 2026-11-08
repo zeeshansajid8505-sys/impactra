@@ -76,7 +76,16 @@ export type Permission =
   | 'release_safety.read'
   | 'release_safety.evaluate'
   | 'github_check.read'
-  | 'github_check.publish';
+  | 'github_check.publish'
+  | 'release_approval.read'
+  | 'release_approval.request'
+  | 'release_approval.resolve'
+  | 'release_approval.exception'
+  | 'release_policy.read'
+  | 'release_policy.create'
+  | 'release_policy.update'
+  | 'release_policy.activate'
+  | 'release_policy.archive';
 
 export interface UserDto {
   id: string;
@@ -764,6 +773,8 @@ export interface BlastRadiusAnalysisDto {
   failureMessage: string | null;
   createdAt: string;
   updatedAt: string;
+  releasePolicyId?: string | null;
+  policySnapshot?: ReleasePolicySnapshotDto | null;
   changeSet?: ChangeSetDto;
   changeRevision?: ChangeRevisionDto;
   roots?: BlastRadiusRootDto[];
@@ -899,6 +910,8 @@ export interface ReleaseSafetyAssessmentDto {
   failureMessage: string | null;
   createdAt: string;
   updatedAt: string;
+  releasePolicyId?: string | null;
+  policySnapshot?: ReleasePolicySnapshotDto | null;
   changeSet?: ChangeSetDto;
   changeRevision?: ChangeRevisionDto;
   blastRadiusAnalysis?: BlastRadiusAnalysisDto;
@@ -1135,4 +1148,248 @@ export interface ResolveReleaseApprovalRequestDto {
 
 export interface GrantReleaseExceptionRequestDto {
   reason: string;
+}
+// ============================================================
+// Release Policy Configuration & Enforcement Contracts (Phase 11)
+// ============================================================
+
+export const ReleasePolicyStatus = {
+  DRAFT: 'DRAFT',
+  ACTIVE: 'ACTIVE',
+  SUPERSEDED: 'SUPERSEDED',
+  ARCHIVED: 'ARCHIVED',
+} as const;
+export type ReleasePolicyStatus =
+  (typeof ReleasePolicyStatus)[keyof typeof ReleasePolicyStatus];
+
+export const ReleasePolicyRuleType = {
+  MAX_RISK_SCORE: 'MAX_RISK_SCORE',
+  MINIMUM_RISK_LEVEL: 'MINIMUM_RISK_LEVEL',
+  BLAST_RADIUS_THRESHOLD: 'BLAST_RADIUS_THRESHOLD',
+  CRITICAL_SIGNAL_PRESENT: 'CRITICAL_SIGNAL_PRESENT',
+  HIGH_SIGNAL_COUNT: 'HIGH_SIGNAL_COUNT',
+  PROTECTED_PATH_CHANGED: 'PROTECTED_PATH_CHANGED',
+  REQUIRE_APPROVAL: 'REQUIRE_APPROVAL',
+} as const;
+export type ReleasePolicyRuleType =
+  (typeof ReleasePolicyRuleType)[keyof typeof ReleasePolicyRuleType];
+
+export const ReleasePolicyAction = {
+  ALLOW: 'ALLOW',
+  REQUIRE_REVIEW: 'REQUIRE_REVIEW',
+  BLOCK: 'BLOCK',
+} as const;
+export type ReleasePolicyAction =
+  (typeof ReleasePolicyAction)[keyof typeof ReleasePolicyAction];
+
+export const ReleasePolicyScope = {
+  REPOSITORY_BRANCH: 'REPOSITORY_BRANCH',
+  REPOSITORY_DEFAULT: 'REPOSITORY_DEFAULT',
+  ORGANIZATION_BRANCH: 'ORGANIZATION_BRANCH',
+  ORGANIZATION_DEFAULT: 'ORGANIZATION_DEFAULT',
+  BUILT_IN_DEFAULT: 'BUILT_IN_DEFAULT',
+} as const;
+export type ReleasePolicyScope =
+  (typeof ReleasePolicyScope)[keyof typeof ReleasePolicyScope];
+
+export const ReleasePolicyEventType = {
+  CREATED: 'CREATED',
+  UPDATED: 'UPDATED',
+  ACTIVATED: 'ACTIVATED',
+  SUPERSEDED: 'SUPERSEDED',
+  ARCHIVED: 'ARCHIVED',
+} as const;
+export type ReleasePolicyEventType =
+  (typeof ReleasePolicyEventType)[keyof typeof ReleasePolicyEventType];
+
+export interface ReleasePolicyRuleDto {
+  id: string;
+  releasePolicyId: string;
+  ruleKey: string;
+  ruleType: ReleasePolicyRuleType;
+  enabled: boolean;
+  severity: ReleaseSafetySignalSeverity | null;
+  action: ReleasePolicyAction;
+  thresholdNumeric: number | null;
+  thresholdText: string | null;
+  configuration: Record<string, unknown>;
+  order: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ReleasePolicyEventDto {
+  id: string;
+  organizationId: string;
+  releasePolicyId: string;
+  policyVersion: number;
+  eventType: ReleasePolicyEventType;
+  actorUserId: string;
+  actorUser?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
+  previousStatus: ReleasePolicyStatus | null;
+  newStatus: ReleasePolicyStatus | null;
+  changeSummary: string | null;
+  metadataJson: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface ReleasePolicyDto {
+  id: string;
+  organizationId: string;
+  repositoryConnectionId: string | null;
+  originPolicyId: string | null;
+  name: string;
+  description: string | null;
+  status: ReleasePolicyStatus;
+  version: number;
+  isDefault: boolean;
+  targetBranchPattern: string | null;
+  createdByUserId: string;
+  createdByUser?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
+  activatedByUserId: string | null;
+  activatedByUser?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
+  createdAt: string;
+  updatedAt: string;
+  activatedAt: string | null;
+  supersededAt: string | null;
+  archivedAt: string | null;
+  rules?: ReleasePolicyRuleDto[];
+  events?: ReleasePolicyEventDto[];
+  ruleCount?: number;
+}
+
+export interface ReleasePolicyRuleEvaluationDto {
+  ruleId?: string;
+  ruleKey: string;
+  ruleType: ReleasePolicyRuleType;
+  matched: boolean;
+  action: ReleasePolicyAction;
+  observedValue: unknown;
+  configuredValue: unknown;
+  reason: string;
+  order: number;
+}
+
+export interface ReleasePolicySnapshotDto {
+  policyId: string | null;
+  policyName: string;
+  policyVersion: number;
+  policyScope: ReleasePolicyScope;
+  targetBranchPattern: string | null;
+  policyEngineVersion: string;
+  rules: Array<{
+    ruleKey: string;
+    ruleType: ReleasePolicyRuleType;
+    action: ReleasePolicyAction;
+    enabled: boolean;
+    thresholdNumeric?: number | null;
+    thresholdText?: string | null;
+    configuration?: Record<string, unknown>;
+    order: number;
+  }>;
+  evaluationResults: ReleasePolicyRuleEvaluationDto[];
+  finalAction: ReleasePolicyAction;
+  finalDecision: ReleaseSafetyDecision;
+  resolvedAt: string;
+}
+
+export interface ReleasePolicyPreviewDto {
+  previewOnly: true;
+  policy: {
+    id: string | null;
+    name: string;
+    version: number;
+    scope: ReleasePolicyScope;
+    targetBranchPattern: string | null;
+    isDefault: boolean;
+  };
+  changeSetId: string;
+  changeRevisionId: string;
+  riskScore: number;
+  riskLevel: ReleaseRiskLevel;
+  predictedDecision: ReleaseSafetyDecision;
+  finalAction: ReleasePolicyAction;
+  matchedRules: ReleasePolicyRuleEvaluationDto[];
+  unmatchedRules: ReleasePolicyRuleEvaluationDto[];
+  evaluationResults: ReleasePolicyRuleEvaluationDto[];
+  policyEngineVersion: string;
+  message: string;
+}
+
+export interface EffectiveReleasePolicyDto {
+  policyId: string | null;
+  policyName: string;
+  policyVersion: number;
+  scope: ReleasePolicyScope;
+  repositoryConnectionId: string | null;
+  targetBranchPattern: string | null;
+  selectionReason: string;
+  fallbackUsed: boolean;
+  source: string;
+  policy?: ReleasePolicyDto | null;
+}
+
+export interface CreateReleasePolicyRuleInput {
+  ruleKey?: string;
+  ruleType: ReleasePolicyRuleType;
+  enabled?: boolean;
+  severity?: ReleaseSafetySignalSeverity | null;
+  action?: ReleasePolicyAction;
+  thresholdNumeric?: number | null;
+  thresholdText?: string | null;
+  configuration?: Record<string, unknown>;
+  order?: number;
+}
+
+export interface CreateReleasePolicyRequest {
+  name: string;
+  description?: string;
+  repositoryConnectionId?: string | null;
+  isDefault?: boolean;
+  targetBranchPattern?: string | null;
+  rules?: CreateReleasePolicyRuleInput[];
+}
+
+export interface UpdateReleasePolicyRuleInput {
+  id?: string;
+  ruleKey?: string;
+  ruleType: ReleasePolicyRuleType;
+  enabled?: boolean;
+  severity?: ReleaseSafetySignalSeverity | null;
+  action?: ReleasePolicyAction;
+  thresholdNumeric?: number | null;
+  thresholdText?: string | null;
+  configuration?: Record<string, unknown>;
+  order?: number;
+}
+
+export interface UpdateReleasePolicyRequest {
+  name?: string;
+  description?: string;
+  repositoryConnectionId?: string | null;
+  isDefault?: boolean;
+  targetBranchPattern?: string | null;
+  rules?: UpdateReleasePolicyRuleInput[];
+}
+
+export interface PreviewReleasePolicyRequest {
+  changeSetId: string;
+  changeRevisionId?: string;
+}
+
+export interface ReleasePolicyListResponse {
+  items: ReleasePolicyDto[];
+  total: number;
 }

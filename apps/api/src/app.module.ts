@@ -20,6 +20,7 @@ import { BlastRadiusModule } from './blast-radius/blast-radius.module';
 import { ReleaseSafetyModule } from './release-safety/release-safety.module';
 import { GitHubChecksModule } from './github-checks/github-checks.module';
 import { ReleaseApprovalModule } from './release-approval/release-approval.module';
+import { ReleasePolicyModule } from './release-policy/release-policy.module';
 import { BullModule } from '@nestjs/bullmq';
 import { ConfigService } from '@nestjs/config';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
@@ -73,6 +74,7 @@ import { LoggingMiddleware } from './common/middleware/logging.middleware';
     ReleaseSafetyModule,
     GitHubChecksModule,
     ReleaseApprovalModule,
+    ReleasePolicyModule,
   ],
 })
 export class AppModule implements NestModule {

@@ -52,6 +52,9 @@ model User {
   requestedReleaseApprovals ReleaseApprovalRequest[] @relation("ReleaseApprovalRequestedBy")
   resolvedReleaseApprovals  ReleaseApprovalRequest[] @relation("ReleaseApprovalResolvedBy")
   releaseApprovalEvents     ReleaseApprovalEvent[]   @relation("ReleaseApprovalEventActor")
+  releasePoliciesCreated    ReleasePolicy[]          @relation("ReleasePolicyCreatedBy")
+  releasePoliciesActivated  ReleasePolicy[]          @relation("ReleasePolicyActivatedBy")
+  releasePolicyEvents       ReleasePolicyEvent[]     @relation("ReleasePolicyEventActor")
 
   @@map("users")
 }
@@ -79,6 +82,8 @@ model Organization {
   gitHubCheckPublications GitHubCheckPublication[]
   releaseApprovalRequests   ReleaseApprovalRequest[]
   releaseApprovalEvents     ReleaseApprovalEvent[]
+  releasePolicies           ReleasePolicy[]
+  releasePolicyEvents       ReleasePolicyEvent[]
 
   @@map("organizations")
 }
@@ -252,6 +257,7 @@ model RepositoryConnection {
   changeRevisions      ChangeRevision[]
   gitHubCheckPublications GitHubCheckPublication[]
   releaseApprovalRequests   ReleaseApprovalRequest[]
+  releasePolicies           ReleasePolicy[]
 
   @@unique([organizationId, githubRepositoryId])
   @@index([organizationId])
@@ -874,6 +880,9 @@ model ReleaseSafetyAssessment {
   signals               ReleaseSafetySignal[]
   gitHubCheckPublications GitHubCheckPublication[]
   releaseApprovalRequest    ReleaseApprovalRequest?
+  releasePolicyId           String?                       @map("release_policy_id")
+  policySnapshotJson        Json?                         @map("policy_snapshot_json")
+  releasePolicy             ReleasePolicy?                @relation(fields: [releasePolicyId], references: [id], onDelete: SetNull)
 
   @@unique([changeRevisionId, blastRadiusAnalysisId, policyVersion])
   @@index([organizationId])
@@ -882,6 +891,7 @@ model ReleaseSafetyAssessment {
   @@index([blastRadiusAnalysisId])
   @@index([status])
   @@index([decision])
+  @@index([releasePolicyId])
   @@index([createdAt])
   @@map("release_safety_assessments")
 }
@@ -1066,4 +1076,137 @@ model ReleaseApprovalEvent {
   @@index([actorUserId])
   @@index([createdAt])
   @@map("release_approval_events")
+}
+/// Release Policy Status lifecycle enum.
+enum ReleasePolicyStatus {
+  DRAFT
+  ACTIVE
+  SUPERSEDED
+  ARCHIVED
+}
+
+/// Supported deterministic Release Policy rule types.
+enum ReleasePolicyRuleType {
+  MAX_RISK_SCORE
+  MINIMUM_RISK_LEVEL
+  BLAST_RADIUS_THRESHOLD
+  CRITICAL_SIGNAL_PRESENT
+  HIGH_SIGNAL_COUNT
+  PROTECTED_PATH_CHANGED
+  REQUIRE_APPROVAL
+}
+
+/// Action to apply when a policy rule matches.
+enum ReleasePolicyAction {
+  ALLOW
+  REQUIRE_REVIEW
+  BLOCK
+}
+
+/// Effective policy resolution scope.
+enum ReleasePolicyScope {
+  REPOSITORY_BRANCH
+  REPOSITORY_DEFAULT
+  ORGANIZATION_BRANCH
+  ORGANIZATION_DEFAULT
+  BUILT_IN_DEFAULT
+}
+
+/// Audit event types for release policy lifecycle transitions.
+enum ReleasePolicyEventType {
+  CREATED
+  UPDATED
+  ACTIVATED
+  SUPERSEDED
+  ARCHIVED
+}
+
+/// Configurable, versioned release policy governing Release Safety assessments.
+model ReleasePolicy {
+  id                     String                 @id @default(uuid())
+  organizationId         String                 @map("organization_id")
+  repositoryConnectionId String?                @map("repository_connection_id")
+  originPolicyId         String?                @map("origin_policy_id")
+  name                   String
+  description            String?
+  status                 ReleasePolicyStatus    @default(DRAFT)
+  version                Int                    @default(1)
+  isDefault              Boolean                @default(false) @map("is_default")
+  targetBranchPattern    String?                @map("target_branch_pattern")
+  createdByUserId        String                 @map("created_by_user_id")
+  activatedByUserId      String?                @map("activated_by_user_id")
+  createdAt              DateTime               @default(now()) @map("created_at")
+  updatedAt              DateTime               @updatedAt @map("updated_at")
+  activatedAt            DateTime?              @map("activated_at")
+  supersededAt           DateTime?              @map("superseded_at")
+  archivedAt             DateTime?              @map("archived_at")
+  organization           Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  repositoryConnection   RepositoryConnection?  @relation(fields: [repositoryConnectionId], references: [id], onDelete: Cascade)
+  originPolicy           ReleasePolicy?         @relation("PolicyVersions", fields: [originPolicyId], references: [id], onDelete: SetNull)
+  derivedPolicies        ReleasePolicy[]        @relation("PolicyVersions")
+  createdByUser          User                   @relation("ReleasePolicyCreatedBy", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  activatedByUser        User?                  @relation("ReleasePolicyActivatedBy", fields: [activatedByUserId], references: [id], onDelete: SetNull)
+  rules                  ReleasePolicyRule[]
+  events                 ReleasePolicyEvent[]
+  assessments            ReleaseSafetyAssessment[]
+
+  @@index([organizationId])
+  @@index([repositoryConnectionId])
+  @@index([originPolicyId])
+  @@index([status])
+  @@index([version])
+  @@index([isDefault])
+  @@index([targetBranchPattern])
+  @@index([createdByUserId])
+  @@index([activatedByUserId])
+  @@index([createdAt])
+  @@map("release_policies")
+}
+
+/// Deterministic, typed rule belonging to a specific ReleasePolicy version.
+model ReleasePolicyRule {
+  id               String                 @id @default(uuid())
+  releasePolicyId  String                 @map("release_policy_id")
+  ruleKey          String                 @map("rule_key")
+  ruleType         ReleasePolicyRuleType  @map("rule_type")
+  enabled          Boolean                @default(true)
+  severity         ReleaseSafetySignalSeverity?
+  action           ReleasePolicyAction    @default(REQUIRE_REVIEW)
+  thresholdNumeric Float?                 @map("threshold_numeric")
+  thresholdText    String?                @map("threshold_text")
+  configuration    Json                   @default("{}")
+  order            Int                    @default(0)
+  createdAt        DateTime               @default(now()) @map("created_at")
+  updatedAt        DateTime               @updatedAt @map("updated_at")
+  policy           ReleasePolicy          @relation(fields: [releasePolicyId], references: [id], onDelete: Cascade)
+
+  @@index([releasePolicyId])
+  @@index([ruleType])
+  @@index([order])
+  @@map("release_policy_rules")
+}
+
+/// Append-only, immutable audit ledger for release policy lifecycle transitions.
+model ReleasePolicyEvent {
+  id              String                 @id @default(uuid())
+  organizationId  String                 @map("organization_id")
+  releasePolicyId String                 @map("release_policy_id")
+  policyVersion   Int                    @map("policy_version")
+  eventType       ReleasePolicyEventType @map("event_type")
+  actorUserId     String                 @map("actor_user_id")
+  previousStatus  ReleasePolicyStatus?   @map("previous_status")
+  newStatus       ReleasePolicyStatus?   @map("new_status")
+  changeSummary   String?                @map("change_summary")
+  metadataJson    Json                   @default("{}") @map("metadata_json")
+  createdAt       DateTime               @default(now()) @map("created_at")
+  organization    Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  releasePolicy   ReleasePolicy          @relation(fields: [releasePolicyId], references: [id], onDelete: Cascade)
+  actorUser       User                   @relation("ReleasePolicyEventActor", fields: [actorUserId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([releasePolicyId])
+  @@index([eventType])
+  @@index([actorUserId])
+  @@index([createdAt])
+  @@map("release_policy_events")
 }
