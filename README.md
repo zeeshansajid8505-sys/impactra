@@ -2,8 +2,8 @@
 
 ### AI-Powered Software Change Intelligence & Release Safety Platform
 
-[![Impactra CI](https://github.com/impactra/impactra/actions/workflows/ci.yml/badge.svg)](https://github.com/impactra/impactra/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/impactra/impactra)
+[![Impactra CI](https://github.com/zeeshansajid8505-sys/impactra/actions/workflows/ci.yml/badge.svg)](https://github.com/zeeshansajid8505-sys/impactra/actions/workflows/ci.yml)
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/zeeshansajid8505-sys/impactra)
 [![Node](https://img.shields.io/badge/node-24.21.0-brightgreen.svg)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-12.3.4-orange.svg)](https://pnpm.io/)
 [![TypeScript](https://img.shields.io/badge/typescript-5.7.3-blue.svg)](https://www.typescriptlang.org/)

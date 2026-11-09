@@ -46,7 +46,7 @@ jobs:
           --health-retries 5
 
       minio:
-        image: quay.io/minio/minio:RELEASE.2025-02-07T23-21-09Z
+        image: pgsty/silo:RELEASE.2026-10-26T00-00-00Z
         command: server /data
         env:
           MINIO_ROOT_USER: impactra_ci_minio_user

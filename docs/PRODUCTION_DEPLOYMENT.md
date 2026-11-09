@@ -81,7 +81,7 @@ Clone the repository to your production server:
 ```bash
 mkdir -p /opt/impactra
 cd /opt/impactra
-git clone https://github.com/impactra/impactra.git .
+git clone https://github.com/zeeshansajid8505-sys/impactra.git .
 ```
 
 Create `/opt/impactra/.env` by copying `.env.example`:

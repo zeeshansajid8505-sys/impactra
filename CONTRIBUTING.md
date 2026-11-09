@@ -20,7 +20,7 @@ We are committed to providing a welcoming, inclusive, and professional environme
 ### Initial Setup
 ```bash
 # 1. Clone repository and install dependencies
-git clone https://github.com/impactra/impactra.git
+git clone https://github.com/zeeshansajid8505-sys/impactra.git
 cd impactra
 pnpm install
 

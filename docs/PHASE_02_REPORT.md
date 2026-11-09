@@ -20,7 +20,7 @@ Phase 02 establishes the production-grade modular monolith backend and local inf
 | `impactra-api` | `impactra-api` | `apps/api/Dockerfile` | **healthy** | `0.0.0.0:3001->3001/tcp` |
 | `impactra-postgres` | `impactra-postgres` | `postgres:17.4-alpine` | **healthy** | `0.0.0.0:5433->5432/tcp` |
 | `impactra-redis` | `impactra-redis` | `redis:7.4.2-alpine` | **healthy** | `0.0.0.0:6380->6379/tcp` |
-| `impactra-minio` | `impactra-minio` | `quay.io/minio/minio:RELEASE.2025-02-07T23-21-09Z` | **healthy** | `0.0.0.0:9000->9000/tcp`, `0.0.0.0:9001->9001/tcp` |
+| `impactra-minio` | `impactra-minio` | `pgsty/silo:RELEASE.2026-10-26T00-00-00Z` | **healthy** | `0.0.0.0:9000->9000/tcp`, `0.0.0.0:9001->9001/tcp` |
 | `impactra-web` | `impactra-web` | `Dockerfile` | **running** | `0.0.0.0:80->3000/tcp`, `0.0.0.0:3000->3000/tcp` |
 
 ---
@@ -96,7 +96,7 @@ All container images are pinned to explicit, reproducible tags to prevent drift 
 | :--- | :--- | :--- | :--- |
 | **PostgreSQL** | `postgres` | `17.4-alpine` | Docker Hub (Official) |
 | **Redis** | `redis` | `7.4.2-alpine` | Docker Hub (Official) |
-| **MinIO** | `minio/minio` | `RELEASE.2025-02-07T23-21-09Z` | `quay.io/minio/minio` (Official Quay Mirror) |
+| **MinIO / Silo** | `pgsty/silo` | `RELEASE.2026-10-26T00-00-00Z` | Docker Hub (Official) |
 | **Base Container** | `node` | `24.21.0-alpine` | Docker Hub (Official) |
 | **Package Manager** | `pnpm` | `12.3.4` | Pinned via Corepack |
 | **Build System** | `Turborepo` | `2.10.13` | Monorepo task runner |

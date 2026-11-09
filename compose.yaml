@@ -98,7 +98,7 @@ services:
       - impactra-network
 
   impactra-minio:
-    image: quay.io/minio/minio:RELEASE.2025-02-07T23-21-09Z
+    image: pgsty/silo:RELEASE.2026-10-26T00-00-00Z
     container_name: impactra-minio
     command: server /data --console-address ":9001"
     ports:

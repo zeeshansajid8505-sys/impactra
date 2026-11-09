@@ -168,7 +168,7 @@ services:
   # 6. S3-Compatible Object Storage (MinIO Self-Hosted Option)
   # ----------------------------------------------------------------------------
   impactra-minio:
-    image: quay.io/minio/minio:RELEASE.2025-02-07T23-21-09Z
+    image: pgsty/silo:RELEASE.2026-10-26T00-00-00Z
     container_name: impactra-minio
     restart: unless-stopped
     command: server /data
